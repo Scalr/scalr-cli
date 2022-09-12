@@ -10,11 +10,11 @@ Installing the Scalr cli tool is very straightforward as it's distributed as a s
 
 ```
 #linux 64bit example
-wget -o /usr/bin/scalr https://github.com/Scalr/scalr-cli/raw/master/bin/scalr-linux-amd64
+wget -O /usr/bin/scalr https://github.com/Scalr/scalr-cli/raw/master/bin/scalr-linux-amd64
 chmod +x /usr/bin/scalr
 
 #macos 64bit example
-wget -o /usr/bin/scalr https://github.com/Scalr/scalr-cli/raw/master/bin/scalr-darwin-amd64
+wget -O /usr/bin/scalr https://github.com/Scalr/scalr-cli/raw/master/bin/scalr-darwin-amd64
 chmod +x /usr/bin/scalr
 ```
 
