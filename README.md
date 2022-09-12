@@ -1,10 +1,7 @@
 "scalr" is a command-line tool that communicates directly with the Scalr API.
 
-As the tool needs to know the URL to your Scalr installation as well as the authentication token, you need to make sure that
-your environment has SCALR_URL and SCALR_TOKEN variables set.
-
 ## Beta Software
-Please note that this is currently beta software and might not work as expected at all time. No guarantees are given. Use at your own risk.
+Please note that this is currently beta software and might not work as expected at all times. No guarantees are given. Use at your own risk.
 If you find something that is broken, please run it again with the "-verbose" flag and post the output as an issue.
 
 ## Installation
