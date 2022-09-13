@@ -9,14 +9,15 @@ If you find something that is broken, please run it again with the "-verbose" fl
 Installing the Scalr cli tool is very straightforward as it's distributed as a single static binary. Simply download the binary from the "bin/" directory that corresponds to your architecture and (preferably) place it somewhere in your PATH. You probably want to set it as executable as well.
 
 ```
-#linux 64bit example
-wget -O /usr/bin/scalr https://github.com/Scalr/scalr-cli/raw/main/bin/scalr-darwin-arm64
+# linux 64bit example
+wget -O /usr/bin/scalr https://github.com/Scalr/scalr-cli/raw/main/bin/scalr-linux-amd64
 chmod +x /usr/bin/scalr
 
-#macos 64bit example
-wget -O /usr/bin/scalr https://github.com/Scalr/scalr-cli/raw/main/bin/scalr-darwin-amd64
+# macos 64bit example
+wget -O /usr/bin/scalr https://github.com/Scalr/scalr-cli/raw/main/bin/scalr-darwin-arm64
 chmod +x /usr/bin/scalr
 ```
+binaries for other operating systems, including windows, can be found in [bin/](bin/).
 
 ## Basic usage
 ```
