@@ -14,7 +14,15 @@ do
     GOARCH="${arch[$i]}"
     EXT=""
 
-    if [ $GOOS == "windows" ]; then
+    if [ $GOOS == 'darwin' ] && [ $GOARCH == '386' ]; then
+      continue
+    fi
+
+    if [ $GOOS == 'darwin' ] && [ $GOARCH == 'arm' ]; then
+      continue
+    fi
+
+    if [ $GOOS == 'windows' ]; then
       EXT=".exe"
     fi
 
@@ -22,9 +30,11 @@ do
     go build -ldflags="-s -w" -o bin/$BINARY .
     cd bin
       chmod +x $BINARY
+      mv $BINARY scalr
       PACKAGE="scalr-cli_${VERSION}_${GOOS}_${GOARCH}.zip"
-      zip -9 $PACKAGE $BINARY
+      zip -9 $PACKAGE scalr
       sha256sum $PACKAGE >> "scalr-cli_${VERSION}_SHA256SUMS"
+      rm scalr
     cd ..
   done
 done
