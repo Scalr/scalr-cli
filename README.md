@@ -35,7 +35,7 @@ Options:
 ```
 
 ## Configure:
-Before the CLI can be used, you will need to configure what Scalr URL and Token to use.
+Before the CLI can be used, you will need to configure what Scalr URL and [Token](https://docs.scalr.com/en/latest/api/index.html#scalr-api) to use.
 This can be done using environment variables (SCALR_HOSTNAME and SCALR_TOKEN) or a configuration file.
 Run the CLI with the -configure flag to run the configuration wizard.
 
