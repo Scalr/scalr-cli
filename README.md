@@ -2,11 +2,11 @@
 
 ## Beta Software
 Please note that this is currently beta software and might not work as expected at all times. No guarantees are given. Use at your own risk.
-If you find something that is broken, please run it again with the "-verbose" flag and post the output as an issue.
+If you find something that is broken, please run it again with the "-verbose" flag and post the output as an [issue](https://github.com/Scalr/scalr-cli/issues).
 
 ## Installation
 
-Installing the Scalr cli tool is very straightforward as it's distributed as a single static binary. Simply download the zipped binary from the releases section that corresponds to your architecture and (preferably) unpack it somewhere in your PATH.
+Installing the Scalr cli tool is very straightforward as it's distributed as a single static binary. Simply download the zipped binary from the [releases](https://github.com/Scalr/scalr-cli/releases) section that corresponds to your architecture and (preferably) unpack it somewhere in your PATH.
 
 ## Basic usage
 ```
@@ -35,7 +35,7 @@ Options:
 ```
 
 ## Configure:
-Before the CLI can be used, you will need to configure what Scalr URL and Token to use.
+Before the CLI can be used, you will need to configure what Scalr URL and [Token](https://docs.scalr.com/en/latest/api/index.html#scalr-api) to use.
 This can be done using environment variables (SCALR_HOSTNAME and SCALR_TOKEN) or a configuration file.
 Run the CLI with the -configure flag to run the configuration wizard.
 
