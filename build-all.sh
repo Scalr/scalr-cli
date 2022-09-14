@@ -27,7 +27,7 @@ do
     fi
 
     BINARY="scalr-cli_${VERSION}_${GOOS}_${GOARCH}${EXT}"
-    go build -ldflags="-s -w" -o bin/$BINARY .
+    GOOS=$GOOS GOARCH=$GOARCH go build -ldflags="-s -w" -o bin/$BINARY .
     cd bin
       chmod +x $BINARY
       mv $BINARY scalr
