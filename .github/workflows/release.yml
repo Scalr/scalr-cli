@@ -1,0 +1,30 @@
+name: Compile and Release
+
+on: 
+  workflow_dispatch:
+    inputs:
+      version:
+        type: string
+        description: Version for new release
+        required: true
+        default: 0.0.0
+        
+jobs:
+  compile:
+    name: Compile and Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '>=1.18.0'
+
+      - name: Compile and Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          sed -i "s/0.0.0/${VERSION}/" main.go
+          bash build-all.sh $VERSION
+          gh release create v$VERSION --generate-notes ./bin/*.zip ./bin/*_SHA256SUMS
