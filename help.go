@@ -133,9 +133,9 @@ func printHelpCommand(command string) {
 					enum = parameter.Value.Schema.Value.Items.Value.Enum
 				}
 
-				flags[parameter.Value.Name] = Parameter{
+				flags[renameFlag(parameter.Value.Name)] = Parameter{
 					varType:     parameter.Value.Schema.Value.Type,
-					description: parameter.Value.Description,
+					description: renameFlag(parameter.Value.Description),
 					required:    parameter.Value.Required,
 					enum:        enum,
 				}

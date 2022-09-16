@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -18,11 +19,19 @@ import (
 
 type Parameter struct {
 	varType     string
+	orgName     string
 	description string
 	required    bool
 	enum        []any
 	location    string
 	value       *string
+}
+
+//Rename flags with odd names that causes issues in some shells
+func renameFlag(name string) string {
+	m := regexp.MustCompile(`\[(.*)\]`)
+
+	return m.ReplaceAllString(name, "-$1")
 }
 
 func parseCommand(format string, verbose bool) {
@@ -63,14 +72,15 @@ func parseCommand(format string, verbose bool) {
 					parameter.Value.Schema.Value.Type == "integer" ||
 					parameter.Value.Schema.Value.Type == "array" {
 
-					flags[parameter.Value.Name] = Parameter{
+					flags[renameFlag(parameter.Value.Name)] = Parameter{
 						location: parameter.Value.In,
 						varType:  "string",
+						orgName:  parameter.Value.Name,
 						required: parameter.Value.Required,
 						value:    new(string),
 					}
 
-					subFlag.StringVar(flags[parameter.Value.Name].value, parameter.Value.Name, "", parameter.Value.Description)
+					subFlag.StringVar(flags[renameFlag(parameter.Value.Name)].value, renameFlag(parameter.Value.Name), "", parameter.Value.Description)
 
 					continue
 				}
@@ -191,11 +201,11 @@ func parseCommand(format string, verbose bool) {
 				switch parameter.location {
 				case "query":
 					//This flag value should be sent as a query parameter
-					query.Add(name, *parameter.value)
+					query.Add(parameter.orgName, *parameter.value)
 
 				case "path":
 					//This flag value goes in the URI
-					uri = strings.Replace(uri, "{"+name+"}", *parameter.value, 1)
+					uri = strings.Replace(uri, "{"+parameter.orgName+"}", *parameter.value, 1)
 				}
 
 			}
