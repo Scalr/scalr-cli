@@ -285,6 +285,7 @@ func printHelpCommand(command string) {
 						varType = "LIST"
 					}
 
+					completeColor := "-" + flg + colorBlue + "=" + varType + colorReset
 					complete := "-" + flg + "=" + varType
 
 					//TODO: IF DESCRIPTION INCLUDES LINK, CONVERT IT TO A HTTP LINK TO THE DOCS
@@ -294,7 +295,7 @@ func printHelpCommand(command string) {
 						description = description + colorRed + " [*required]" + colorReset
 					}
 
-					fmt.Println(" ", complete, strings.Repeat(" ", maxLength-len(complete)+1), description)
+					fmt.Println(" ", completeColor, strings.Repeat(" ", maxLength-len(complete)+1), description)
 
 					if flags[flg].enum != nil {
 
