@@ -133,9 +133,9 @@ func printHelpCommand(command string) {
 					enum = parameter.Value.Schema.Value.Items.Value.Enum
 				}
 
-				flags[parameter.Value.Name] = Parameter{
+				flags[renameFlag(parameter.Value.Name)] = Parameter{
 					varType:     parameter.Value.Schema.Value.Type,
-					description: parameter.Value.Description,
+					description: renameFlag(parameter.Value.Description),
 					required:    parameter.Value.Required,
 					enum:        enum,
 				}
@@ -285,6 +285,7 @@ func printHelpCommand(command string) {
 						varType = "LIST"
 					}
 
+					completeColor := "-" + flg + colorBlue + "=" + varType + colorReset
 					complete := "-" + flg + "=" + varType
 
 					//TODO: IF DESCRIPTION INCLUDES LINK, CONVERT IT TO A HTTP LINK TO THE DOCS
@@ -294,7 +295,7 @@ func printHelpCommand(command string) {
 						description = description + colorRed + " [*required]" + colorReset
 					}
 
-					fmt.Println(" ", complete, strings.Repeat(" ", maxLength-len(complete)+1), description)
+					fmt.Println(" ", completeColor, strings.Repeat(" ", maxLength-len(complete)+1), description)
 
 					if flags[flg].enum != nil {
 
