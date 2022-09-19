@@ -450,6 +450,11 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 			break
 		}
 
+		//If data is empty, just send empty array
+		if len(response.Search("data").Children()) == 0 && len(response.Search("data").ChildrenMap()) == 0 {
+			break
+		}
+
 		arrayResponse := response.Exists("data", "0")
 
 		newItems := parseData(response)
