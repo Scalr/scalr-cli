@@ -429,11 +429,7 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 			fmt.Println(string(resBody))
 		}
 
-		switch res.StatusCode {
-		case 400:
-			showError(resBody)
-
-		case 404:
+		if res.StatusCode >= 300 {
 			showError(resBody)
 		}
 
