@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -29,9 +28,10 @@ type Parameter struct {
 
 //Rename flags with odd names that causes issues in some shells
 func renameFlag(name string) string {
-	m := regexp.MustCompile(`\[(.*)\]`)
+	name = strings.ReplaceAll(name, "[", "-")
+	name = strings.ReplaceAll(name, "]", "")
 
-	return m.ReplaceAllString(name, "-$1")
+	return name
 }
 
 func parseCommand(format string, verbose bool) {
