@@ -195,7 +195,7 @@ func downloadFile(URL string, fileName string) {
 	}
 
 	//Create a empty file
-	file, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, 0600)
+	file, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		panic(err)
 	}
