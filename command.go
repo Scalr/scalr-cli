@@ -359,6 +359,7 @@ func parseCommand(format string, verbose bool) {
 
 	//Command not found
 	fmt.Printf("\nCommand '%s' not found. Use -help to list available commands.\n\n", command)
+	os.Exit(1)
 }
 
 //Helper function to shorter flag-names for convenience
