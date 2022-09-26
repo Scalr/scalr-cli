@@ -129,8 +129,14 @@ func printHelpCommand(command string) {
 
 				//Collect valid flag values
 				var enum []any
-				if parameter.Value.Schema.Value.Items != nil {
+				if parameter.Value.Schema.Value.Type == "array" &&
+					parameter.Value.Schema.Value.Items != nil &&
+					parameter.Value.Schema.Value.Items.Value.Enum != nil {
 					enum = parameter.Value.Schema.Value.Items.Value.Enum
+				}
+
+				if parameter.Value.Schema.Value.Enum != nil {
+					enum = parameter.Value.Schema.Value.Enum
 				}
 
 				flags[renameFlag(parameter.Value.Name)] = Parameter{
