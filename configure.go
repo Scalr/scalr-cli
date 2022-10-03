@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
 	"syscall"
 
@@ -25,9 +24,7 @@ func runConfigure() {
 	conf.Set(string(bytepw), "token")
 
 	home, err := os.UserHomeDir()
-	if err != nil {
-		log.Fatal(err)
-	}
+	checkErr(err)
 
 	home = home + "/.scalr/"
 	config := "scalr.conf"
@@ -38,9 +35,7 @@ func runConfigure() {
 
 	//Create a empty file
 	file, err := os.OpenFile(home+config, os.O_RDWR|os.O_CREATE, 0600)
-	if err != nil {
-		panic(err)
-	}
+	checkErr(err)
 	defer file.Close()
 
 	fmt.Println("\nConfiguration saved in " + home + config)

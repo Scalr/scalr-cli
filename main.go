@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -52,6 +51,7 @@ func main() {
 	verbose := flag.Bool("verbose", false, "")
 	version := flag.Bool("version", false, "")
 	format := flag.String("format", "json", "")
+	update := flag.Bool("update", false, "")
 
 	flag.Parse()
 
@@ -65,13 +65,16 @@ func main() {
 		return
 	}
 
+	if *update {
+		runUpdate()
+		return
+	}
+
 	//Load configuration
 	if os.Getenv("SCALR_HOSTNAME") == "" || os.Getenv("SCALR_TOKEN") == "" {
 
 		home, err := os.UserHomeDir()
-		if err != nil {
-			log.Fatal(err)
-		}
+		checkErr((err))
 
 		home = home + "/.scalr/"
 		config := "scalr.conf"
@@ -83,9 +86,7 @@ func main() {
 		}
 
 		jsonParsed, err := gabs.ParseJSON(content)
-		if err != nil {
-			panic(err)
-		}
+		checkErr(err)
 
 		ScalrHostname = jsonParsed.Search("hostname").Data().(string)
 		ScalrToken = jsonParsed.Search("token").Data().(string)
@@ -105,13 +106,18 @@ func main() {
 
 }
 
+//Check for error and panic
+func checkErr(e error) {
+	if e != nil {
+		panic(e)
+	}
+}
+
 //Loads OpenAPI specification
 func loadAPI() *openapi3.T {
 
 	home, err := os.UserHomeDir()
-	if err != nil {
-		log.Fatal(err)
-	}
+	checkErr(err)
 
 	home = home + "/.scalr/"
 	spec := "cache-" + fmt.Sprintf("%x", md5.Sum([]byte(ScalrHostname))) + "-openapi-preview.yml"
@@ -142,14 +148,11 @@ func loadAPI() *openapi3.T {
 	//api, _ := url.Parse("https://scalr.io/api/iacp/v3/openapi-preview.yml")
 	//doc, err := loader.LoadFromURI(api)
 
-	if err != nil {
-		panic(err)
-	}
+	checkErr(err)
 
 	//Validate the specification
-	if err = doc.Validate(loader.Context); err != nil {
-		panic(err)
-	}
+	err = doc.Validate(loader.Context)
+	checkErr(err)
 
 	return doc
 }
@@ -173,22 +176,16 @@ func downloadFile(URL string, fileName string) {
 	client := &http.Client{}
 
 	req, err := http.NewRequest("GET", URL, nil)
-	if err != nil {
-		panic(err)
-	}
+	checkErr(err)
 
 	req.Header.Set("User-Agent", "scalr-cli/"+versionCLI)
 
 	resp, err := client.Do(req)
-	if err != nil {
-		panic(err)
-	}
+	checkErr(err)
 
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		panic(err)
-	}
+	checkErr(err)
 
 	if resp.StatusCode != 200 {
 		panic(errors.New("received non-200 response code from server"))
@@ -196,9 +193,7 @@ func downloadFile(URL string, fileName string) {
 
 	//Create a empty file
 	file, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
-	if err != nil {
-		panic(err)
-	}
+	checkErr(err)
 	defer file.Close()
 
 	file.WriteString(string(body))

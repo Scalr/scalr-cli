@@ -32,6 +32,7 @@ Options:
   -help       Shows documentation for all (or specified) command(s)
   -verbose    Shows complete request and response communication data
   -configure  Run configuration wizard
+  -update     Updates this tool to the latest version by downloading and replacing current binary
 ```
 
 ## Configure:
@@ -115,6 +116,15 @@ Simply running the command without flags will tell you which required flags have
 ```
 user@server ~$ scalr lock-workspace
 Missing required flag(s): [workspace]
+```
+
+## Update CLI version:
+```
+user@server ~$ scalr -update
+Latest version is 0.9.0, which is different from current installed version 0.8.0. 
+Downloading version 0.9.0...
+Replacing current binary with downloaded version... 
+All done! Your binary is now at version 0.9.0 
 ```
 
 ## List available commands:
