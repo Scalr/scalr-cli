@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -228,9 +227,9 @@ func parseCommand(format string, verbose bool) {
 					for scanner.Scan() {
 						stdin = append(stdin, scanner.Bytes()...)
 					}
-					if err := scanner.Err(); err != nil {
-						log.Fatal(err)
-					}
+					err := scanner.Err()
+					checkErr(err)
+
 					body = string(stdin)
 
 				} else {
@@ -400,10 +399,7 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 		}
 
 		req, err := http.NewRequest(method, "https://"+ScalrHostname+uri+"?"+query.Encode(), strings.NewReader(body))
-		if err != nil {
-			fmt.Printf("client: could not create request: %s\n", err)
-			os.Exit(1)
-		}
+		checkErr(err)
 
 		req.Header.Set("User-Agent", "scalr-cli/"+versionCLI)
 		req.Header.Add("Authorization", "Bearer "+ScalrToken)
@@ -414,16 +410,10 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 		}
 
 		res, err := http.DefaultClient.Do(req)
-		if err != nil {
-			fmt.Printf("client: error making http request: %s\n", err)
-			os.Exit(1)
-		}
+		checkErr(err)
 
 		resBody, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			fmt.Printf("client: could not read response body: %s\n", err)
-			os.Exit(1)
-		}
+		checkErr(err)
 
 		if verbose {
 			//Show raw server response
@@ -441,9 +431,7 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 
 		//Check if paging is needed
 		response, err := gabs.ParseJSON(resBody)
-		if err != nil {
-			panic(err)
-		}
+		checkErr(err)
 
 		//If not a JSON:API response, just rend it raw
 		if res.Header.Get("content-type") != "application/vnd.api+json" {
