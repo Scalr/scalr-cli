@@ -37,6 +37,15 @@ const (
 
 func main() {
 
+	//Handle panics
+	defer func() {
+		err := recover()
+		if err != nil {
+			fmt.Println("Error! " + err.(string))
+			os.Exit(1)
+		}
+	}()
+
 	if len(os.Args[1:]) == 0 {
 		printInfo()
 		return
