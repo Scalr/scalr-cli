@@ -27,14 +27,15 @@ do
     fi
 
     BINARY="scalr-cli_${VERSION}_${GOOS}_${GOARCH}${EXT}"
+
     GOOS=$GOOS GOARCH=$GOARCH go build -ldflags="-s -w" -o bin/$BINARY .
     cd bin
       chmod +x $BINARY
-      mv $BINARY scalr
+      mv $BINARY "scalr${EXT}"
       PACKAGE="scalr-cli_${VERSION}_${GOOS}_${GOARCH}.zip"
-      zip -9 $PACKAGE scalr
+      zip -9 $PACKAGE "scalr${EXT}"
       sha256sum $PACKAGE >> "scalr-cli_${VERSION}_SHA256SUMS"
-      rm scalr
+      rm "scalr${EXT}"
     cd ..
   done
 done
