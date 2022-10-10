@@ -25,7 +25,8 @@ func printInfo() {
 
 	fmt.Print("Environment variables:", "\n")
 	fmt.Print("  SCALR_HOSTNAME", "  ", "Scalr Hostname, i.e example.scalr.io", "\n")
-	fmt.Print("  SCALR_TOKEN", "     ", "Scalr API Token", "\n\n")
+	fmt.Print("  SCALR_TOKEN", "     ", "Scalr API Token", "\n")
+	fmt.Print("  SCALR_ACCOUNT", "   ", "Default Scalr Account ID, i.e acc-tq8cgt2hu6hpfuj", "\n\n")
 
 	fmt.Print("Options:", "\n")
 	fmt.Print("  -version", "    ", "Shows current version of this binary", "\n")

@@ -99,9 +99,6 @@ func parseCommand(format string, verbose bool) {
 				//Recursively collect all required fields
 				requiredFlags = collectRequired(action.RequestBody.Value.Content[contentType].Schema.Value)
 
-				//fmt.Printf("%+#v", requiredFlags)
-				//os.Exit(0)
-
 				var collectAttributes func(*openapi3.Schema, string)
 
 				//Function to support nested objects
@@ -174,6 +171,16 @@ func parseCommand(format string, verbose bool) {
 
 			//Validate all flags
 			subFlag.Parse(os.Args[pos+1:])
+
+			//If command has -account flag and no value set, use default account-ID
+			if flag, ok := flags["account"]; ok && *flag.value == "" {
+				*flag.value = ScalrAccount
+			}
+
+			//If command has -account-id flag and no value set, use default account-ID
+			if flag, ok := flags["account-id"]; ok && *flag.value == "" {
+				*flag.value = ScalrAccount
+			}
 
 			var missing []string
 			var missingBody []string

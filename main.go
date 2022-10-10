@@ -19,6 +19,7 @@ import (
 var (
 	ScalrHostname string
 	ScalrToken    string
+	ScalrAccount  string
 )
 
 const (
@@ -41,7 +42,7 @@ func main() {
 	defer func() {
 		err := recover()
 		if err != nil {
-			fmt.Println("Error! " + err.(string))
+			fmt.Println(err)
 			os.Exit(1)
 		}
 	}()
@@ -100,10 +101,17 @@ func main() {
 		ScalrHostname = jsonParsed.Search("hostname").Data().(string)
 		ScalrToken = jsonParsed.Search("token").Data().(string)
 
+		if jsonParsed.Search("account") != nil {
+			ScalrAccount = jsonParsed.Search("account").Data().(string)
+		} else {
+			ScalrAccount = os.Getenv("SCALR_ACCOUNT")
+		}
+
 	} else {
 		//Read config from Environment
 		ScalrHostname = os.Getenv("SCALR_HOSTNAME")
 		ScalrToken = os.Getenv("SCALR_TOKEN")
+		ScalrAccount = os.Getenv("SCALR_ACCOUNT")
 	}
 
 	if *help {
@@ -145,7 +153,6 @@ func loadAPI() *openapi3.T {
 		downloadFile("https://"+ScalrHostname+"/api/iacp/v3/openapi-preview.yml", home+spec)
 	}
 
-	openapi3.SchemaFormatValidationDisabled = true
 	loader := openapi3.NewLoader()
 	loader.IsExternalRefsAllowed = true
 
@@ -172,7 +179,7 @@ func disableExternalFiles(reader openapi3.ReadFromURIFunc) openapi3.ReadFromURIF
 
 		//Skip examples
 		if strings.Contains(location.Path, "/examples/") {
-			return
+			return []byte("value: {}"), nil
 		}
 
 		return reader(loader, location)

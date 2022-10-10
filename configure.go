@@ -23,6 +23,13 @@ func runConfigure() {
 	bytepw, _ := term.ReadPassword(int(syscall.Stdin))
 	conf.Set(string(bytepw), "token")
 
+	fmt.Print("\nDefault Scalr Account-ID [ex: acc-tq8cgt2hu6hpfuj]: ")
+	scanner.Scan()
+	value := scanner.Text()
+	if value != "" {
+		conf.Set(scanner.Text(), "account")
+	}
+
 	home, err := os.UserHomeDir()
 	checkErr(err)
 
