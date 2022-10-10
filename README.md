@@ -26,6 +26,7 @@ Examples:
 Environment variables:
   SCALR_HOSTNAME  Scalr Hostname, i.e example.scalr.io
   SCALR_TOKEN     Scalr API Token
+  SCALR_ACCOUNT   Default Scalr Account ID, i.e acc-tq8cgt2hu6hpfuj  
 
 Options:
   -version    Shows current version of this binary
@@ -40,10 +41,14 @@ Before the CLI can be used, you will need to configure what Scalr URL and [Token
 This can be done using environment variables (SCALR_HOSTNAME and SCALR_TOKEN) or a configuration file.
 Run the CLI with the -configure flag to run the configuration wizard.
 
+An optional environment variable called SCALR_ACCOUNT can be used to set a default account ID. When running a command that has either an -account or -account-id flag
+(and not manually specified with flags), it will automatically be set to that default account ID.
+
 ```
 user@server ~$ scalr -configure
 Scalr Hostname [ex: example.scalr.io]: example.scalr.io
 Scalr Token (not echoed!): 
+Default Scalr Account-ID [ex: acc-tq8cgt2hu6hpfuj]: acc-tq8cgt2hu6hpfuj
 Configuration saved in /home/user/.scalr/scalr.conf
 ```
 
