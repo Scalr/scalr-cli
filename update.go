@@ -67,7 +67,7 @@ func runUpdate() {
 		err = os.Remove(e)
 		checkErr(err)
 
-		out, err := os.Create(e)
+		out, err := os.OpenFile(e, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
 		checkErr(err)
 		defer out.Close()
 
