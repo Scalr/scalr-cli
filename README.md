@@ -29,11 +29,12 @@ Environment variables:
   SCALR_ACCOUNT   Default Scalr Account ID, i.e acc-tq8cgt2hu6hpfuj  
 
 Options:
-  -version    Shows current version of this binary
-  -help       Shows documentation for all (or specified) command(s)
-  -verbose    Shows complete request and response communication data
-  -configure  Run configuration wizard
-  -update     Updates this tool to the latest version by downloading and replacing current binary
+  -version       Shows current version of this binary
+  -help          Shows documentation for all (or specified) command(s)
+  -verbose       Shows complete request and response communication data
+  -configure     Run configuration wizard
+  -update        Updates this tool to the latest version by downloading and replacing current binary
+  -autocomplete  Enable shell tab auto-complete
 ```
 
 ## Configure:
@@ -130,6 +131,34 @@ Latest version is 0.9.0, which is different from current installed version 0.8.0
 Downloading version 0.9.0...
 Replacing current binary with downloaded version... 
 All done! Your binary is now at version 0.9.0 
+```
+
+## Shell tab auto-complete
+Enabling tab auto-completion will make working with the CLI more efficient, as the shell will automatically show you available commands, flags and options.
+Simply activate it with "scalr -autocomplete". You will have to restart your shell before using it. Remember to press TAB twice to make the shell show you the available options.
+
+```
+user@server ~$ scalr list-e
+list-endpoints           list-environment-tags    list-environments        list-event-definitions
+
+user@server ~$ scalr list-environments -
+-filter-account=          -filter-environment=      -filter-latest-run-date=  -filter-tag=              -include=                 -query=                   -sort=
+
+user@server ~$ scalr list-environments -sort=
+account                  cost-estimation-enabled  created-at               created-by-email         name
+
+user@server ~$ scalr list-environments -sort=account -
+-filter-account=          -filter-environment=      -filter-latest-run-date=  -filter-tag=              -include=                 -query=                   -sort=
+
+user@server ~$ scalr list-environments -sort=account -include=
+account                          created-by                       policy-groups                    tags
+cloud-credentials                default-provider-configurations  provider-configurations
+
+user@server ~$ scalr list-environments -sort=account -include=tags,
+tags,account                          tags,created-by                       tags,policy-groups                    tags,tags
+tags,cloud-credentials                tags,default-provider-configurations  tags,provider-configurations
+
+user@server ~$ scalr list-environments -sort=account -include=tags,created-by
 ```
 
 ## List available commands:
