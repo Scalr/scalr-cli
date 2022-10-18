@@ -47,11 +47,6 @@ func main() {
 		}
 	}()
 
-	if len(os.Args[1:]) == 0 {
-		printInfo()
-		return
-	}
-
 	//Disable unwanted built-in flag features
 	flag.Usage = func() {}
 	flag.Bool("h", false, "")
@@ -62,35 +57,57 @@ func main() {
 	version := flag.Bool("version", false, "")
 	format := flag.String("format", "json", "")
 	update := flag.Bool("update", false, "")
+	autocomplete := flag.Bool("autocomplete", false, "")
 
-	flag.Parse()
+	//Only parse the flags if this is not a tab completion request
+	if os.Getenv("COMP_LINE") == "" {
 
-	if *version {
-		runVersion()
-		return
-	}
+		if len(os.Args[1:]) == 0 {
+			printInfo()
+			return
+		}
 
-	if *configure {
-		runConfigure()
-		return
-	}
+		flag.Parse()
 
-	if *update {
-		runUpdate()
-		return
+		if *version {
+			runVersion()
+			return
+		}
+
+		if *configure {
+			runConfigure()
+			return
+		}
+
+		if *update {
+			runUpdate()
+			return
+		}
+
+		if *autocomplete {
+			enableAutocomplete()
+			return
+		}
+
 	}
 
 	//Load configuration
 	if os.Getenv("SCALR_HOSTNAME") == "" || os.Getenv("SCALR_TOKEN") == "" {
 
 		home, err := os.UserHomeDir()
-		checkErr((err))
+		checkErr(err)
 
 		home = home + "/.scalr/"
 		config := "scalr.conf"
 
 		content, err := ioutil.ReadFile(home + config)
 		if err != nil {
+
+			//End here if this is a compretion request
+			if os.Getenv("COMP_LINE") != "" {
+				return
+			}
+
 			fmt.Print("\n", "Not configured! Please run 'scalr -configure' or set environment variables SCALR_HOSTNAME and SCALR_TOKEN", "\n\n")
 			return
 		}
@@ -112,6 +129,12 @@ func main() {
 		ScalrHostname = os.Getenv("SCALR_HOSTNAME")
 		ScalrToken = os.Getenv("SCALR_TOKEN")
 		ScalrAccount = os.Getenv("SCALR_ACCOUNT")
+	}
+
+	//This is tab compretion request
+	if os.Getenv("COMP_LINE") != "" {
+		runAutocomplete()
+		return
 	}
 
 	if *help {

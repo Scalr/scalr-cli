@@ -29,11 +29,13 @@ func printInfo() {
 	fmt.Print("  SCALR_ACCOUNT", "   ", "Default Scalr Account ID, i.e acc-tq8cgt2hu6hpfuj", "\n\n")
 
 	fmt.Print("Options:", "\n")
-	fmt.Print("  -version", "    ", "Shows current version of this binary", "\n")
-	fmt.Print("  -help", "       ", "Shows documentation for all (or specified) command(s)", "\n")
-	fmt.Print("  -verbose", "    ", "Shows complete request and response communication data", "\n")
-	fmt.Print("  -configure", "  ", "Run configuration wizard", "\n")
-	fmt.Print("  -update", "     ", "Updates this tool to the latest version by downloading and replacing current binary", "\n\n")
+	fmt.Print("  -version", "       ", "Shows current version of this binary", "\n")
+	fmt.Print("  -help", "          ", "Shows documentation for all (or specified) command(s)", "\n")
+	fmt.Print("  -verbose", "       ", "Shows complete request and response communication data", "\n")
+	fmt.Print("  -configure", "     ", "Run configuration wizard", "\n")
+	fmt.Print("  -update", "        ", "Updates this tool to the latest version by downloading and replacing current binary", "\n")
+	fmt.Print("  -autocomplete", "  ", "Enable shell tab auto-complete", "\n\n")
+
 	//fmt.Print("  -format=STRING", "  ", "Specify output format. Options: json (default), table", "\n")
 
 }
