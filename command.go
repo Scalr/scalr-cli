@@ -91,72 +91,77 @@ func parseCommand(format string, verbose bool) {
 
 			var requiredFlags map[string]bool
 
-			if method == "POST" || method == "PATCH" {
+			if method == "POST" || method == "PATCH" || method == "DELETE" {
 
 				for contentType = range action.RequestBody.Value.Content {
 				}
 
-				//Recursively collect all required fields
-				requiredFlags = collectRequired(action.RequestBody.Value.Content[contentType].Schema.Value)
+				//If no schema is defined for the body, no need to look for futher fields
+				if action.RequestBody.Value.Content[contentType].Schema != nil {
 
-				var collectAttributes func(*openapi3.Schema, string)
+					//Recursively collect all required fields
+					requiredFlags = collectRequired(action.RequestBody.Value.Content[contentType].Schema.Value)
 
-				//Function to support nested objects
-				collectAttributes = func(nested *openapi3.Schema, prefix string) {
+					var collectAttributes func(*openapi3.Schema, string)
 
-					//Collect all availble attributes for this command
-					for name, attribute := range nested.Properties {
+					//Function to support nested objects
+					collectAttributes = func(nested *openapi3.Schema, prefix string) {
 
-						//Ignore read-only attributes in body
-						if attribute.Value.ReadOnly {
-							continue
+						//Collect all availble attributes for this command
+						for name, attribute := range nested.Properties {
+
+							//Ignore read-only attributes in body
+							if attribute.Value.ReadOnly {
+								continue
+							}
+
+							flagName := prefix + name
+
+							//Ignore ID-field that is redundant
+							if flagName == "data-id" {
+								continue
+							}
+
+							//Nested object, needs to drill down deeper
+							if attribute.Value.Type == "object" {
+								collectAttributes(attribute.Value, flagName+"-")
+								continue
+							}
+
+							//Arrays might include objects that needs to be drilled down deeper
+							if attribute.Value.Type == "array" && attribute.Value.Items.Value.Type == "object" {
+								collectAttributes(attribute.Value.Items.Value, flagName+"-")
+								continue
+							}
+
+							required := false
+							if requiredFlags[flagName] {
+								required = true
+							}
+
+							//If flag is required and only one value is available, no need to offer it to the user
+							if required && attribute.Value.Enum != nil && len(attribute.Value.Enum) == 1 {
+								continue
+							}
+
+							flagName = shortenName(flagName)
+
+							flags[flagName] = Parameter{
+								location: "body",
+								required: required,
+								enum:     attribute.Value.Enum,
+								value:    new(string),
+							}
+
+							subFlag.StringVar(flags[flagName].value, flagName, "", attribute.Value.Description)
+
 						}
-
-						flagName := prefix + name
-
-						//Ignore ID-field that is redundant
-						if flagName == "data-id" {
-							continue
-						}
-
-						//Nested object, needs to drill down deeper
-						if attribute.Value.Type == "object" {
-							collectAttributes(attribute.Value, flagName+"-")
-							continue
-						}
-
-						//Arrays might include objects that needs to be drilled down deeper
-						if attribute.Value.Type == "array" && attribute.Value.Items.Value.Type == "object" {
-							collectAttributes(attribute.Value.Items.Value, flagName+"-")
-							continue
-						}
-
-						required := false
-						if requiredFlags[flagName] {
-							required = true
-						}
-
-						//If flag is required and only one value is available, no need to offer it to the user
-						if required && attribute.Value.Enum != nil && len(attribute.Value.Enum) == 1 {
-							continue
-						}
-
-						flagName = shortenName(flagName)
-
-						flags[flagName] = Parameter{
-							location: "body",
-							required: required,
-							enum:     attribute.Value.Enum,
-							value:    new(string),
-						}
-
-						subFlag.StringVar(flags[flagName].value, flagName, "", attribute.Value.Description)
 
 					}
 
-				}
+					collectAttributes(action.RequestBody.Value.Content[contentType].Schema.Value, "")
 
-				collectAttributes(action.RequestBody.Value.Content[contentType].Schema.Value, "")
+				}
 
 			}
 
@@ -218,7 +223,7 @@ func parseCommand(format string, verbose bool) {
 
 			var body string
 
-			if method == "POST" || method == "PATCH" {
+			if method == "POST" || method == "PATCH" || method == "DELETE" {
 
 				//If stdin contains data, use that as Body
 				stat, _ := os.Stdin.Stat()
