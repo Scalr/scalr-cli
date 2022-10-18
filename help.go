@@ -29,11 +29,13 @@ func printInfo() {
 	fmt.Print("  SCALR_ACCOUNT", "   ", "Default Scalr Account ID, i.e acc-tq8cgt2hu6hpfuj", "\n\n")
 
 	fmt.Print("Options:", "\n")
-	fmt.Print("  -version", "    ", "Shows current version of this binary", "\n")
-	fmt.Print("  -help", "       ", "Shows documentation for all (or specified) command(s)", "\n")
-	fmt.Print("  -verbose", "    ", "Shows complete request and response communication data", "\n")
-	fmt.Print("  -configure", "  ", "Run configuration wizard", "\n")
-	fmt.Print("  -update", "     ", "Updates this tool to the latest version by downloading and replacing current binary", "\n\n")
+	fmt.Print("  -version", "       ", "Shows current version of this binary", "\n")
+	fmt.Print("  -help", "          ", "Shows documentation for all (or specified) command(s)", "\n")
+	fmt.Print("  -verbose", "       ", "Shows complete request and response communication data", "\n")
+	fmt.Print("  -configure", "     ", "Run configuration wizard", "\n")
+	fmt.Print("  -update", "        ", "Updates this tool to the latest version by downloading and replacing current binary", "\n")
+	fmt.Print("  -autocomplete", "  ", "Enable shell tab auto-complete", "\n\n")
+
 	//fmt.Print("  -format=STRING", "  ", "Specify output format. Options: json (default), table", "\n")
 
 }
@@ -162,98 +164,103 @@ func printHelpCommand(command string) {
 				for contentType = range object.RequestBody.Value.Content {
 				}
 
-				//Recursively collect all required fields
-				requiredFlags := collectRequired(object.RequestBody.Value.Content[contentType].Schema.Value)
+				//If no schema is defined for the body, no need to look for futher fields
+				if object.RequestBody.Value.Content[contentType].Schema != nil {
 
-				relationshipDesc := make(map[string]string)
+					//Recursively collect all required fields
+					requiredFlags := collectRequired(object.RequestBody.Value.Content[contentType].Schema.Value)
 
-				var collectAttributes func(*openapi3.Schema, string, string)
+					relationshipDesc := make(map[string]string)
 
-				//Function to support nested objects
-				//TODO: Should probably move this outside of the loop for performance reason, but will make code less readable
-				collectAttributes = func(nested *openapi3.Schema, prefix string, inheritType string) {
+					var collectAttributes func(*openapi3.Schema, string, string)
 
-					//Collect all availble attributes for this command
-					for name, attribute := range nested.Properties {
+					//Function to support nested objects
+					//TODO: Should probably move this outside of the loop for performance reason, but will make code less readable
+					collectAttributes = func(nested *openapi3.Schema, prefix string, inheritType string) {
 
-						//Special collection of descriptions for relationships
-						if name == "relationships" {
-							for rel, desc := range attribute.Value.Properties {
-								relationshipDesc[rel+"-id"] = desc.Value.Description
+						//Collect all availble attributes for this command
+						for name, attribute := range nested.Properties {
+
+							//Special collection of descriptions for relationships
+							if name == "relationships" {
+								for rel, desc := range attribute.Value.Properties {
+									relationshipDesc[rel+"-id"] = desc.Value.Description
+								}
 							}
-						}
 
-						//Ignore read-only attributes in body
-						if attribute.Value.ReadOnly {
-							continue
-						}
-
-						flagName := prefix + name
-
-						//Ignore ID-field that is redundant
-						if flagName == "data-id" {
-							continue
-						}
-
-						//Nested object, needs to drill down deeper
-						if attribute.Value.Type == "object" {
-							collectAttributes(attribute.Value, flagName+"-", "")
-							continue
-						}
-
-						//Arrays might include objects that needs to be drilled down deeper
-						if attribute.Value.Type == "array" && attribute.Value.Items.Value.Type == "object" {
-							collectAttributes(attribute.Value.Items.Value, flagName+"-", "array")
-							continue
-						}
-
-						required := false
-						if requiredFlags[flagName] {
-							required = true
-						}
-
-						//If flag is required and only one value is available, no need to offer it to the user
-						if required && attribute.Value.Enum != nil && len(attribute.Value.Enum) == 1 {
-							continue
-						}
-
-						description := attribute.Value.Description
-
-						//If this is an attribute, strip prefix to shorten flag-names
-						flagName = strings.TrimPrefix(flagName, "data-attributes-")
-
-						//If this is a relationship, strip prefix and -data- to shorten flag-names
-						if strings.HasPrefix(flagName, "data-relationships-") {
-
-							//If this is not the relationship ID field, ignore it
-							if !strings.HasSuffix(flagName, "-id") {
+							//Ignore read-only attributes in body
+							if attribute.Value.ReadOnly {
 								continue
 							}
 
-							flagName = strings.TrimPrefix(flagName, "data-relationships-")
-							flagName = strings.Replace(flagName, "-data-id", "-id", 1)
+							flagName := prefix + name
 
-							//Fetch description from parent instead
-							description = relationshipDesc[flagName]
-						}
+							//Ignore ID-field that is redundant
+							if flagName == "data-id" {
+								continue
+							}
 
-						theType := attribute.Value.Type
-						if inheritType != "" {
-							theType = inheritType
-						}
+							//Nested object, needs to drill down deeper
+							if attribute.Value.Type == "object" {
+								collectAttributes(attribute.Value, flagName+"-", "")
+								continue
+							}
 
-						flags[flagName] = Parameter{
-							varType:     theType,
-							description: description,
-							required:    required,
-							enum:        attribute.Value.Enum,
+							//Arrays might include objects that needs to be drilled down deeper
+							if attribute.Value.Type == "array" && attribute.Value.Items.Value.Type == "object" {
+								collectAttributes(attribute.Value.Items.Value, flagName+"-", "array")
+								continue
+							}
+
+							required := false
+							if requiredFlags[flagName] {
+								required = true
+							}
+
+							//If flag is required and only one value is available, no need to offer it to the user
+							if required && attribute.Value.Enum != nil && len(attribute.Value.Enum) == 1 {
+								continue
+							}
+
+							description := attribute.Value.Description
+
+							//If this is an attribute, strip prefix to shorten flag-names
+							flagName = strings.TrimPrefix(flagName, "data-attributes-")
+
+							//If this is a relationship, strip prefix and -data- to shorten flag-names
+							if strings.HasPrefix(flagName, "data-relationships-") {
+
+								//If this is not the relationship ID field, ignore it
+								if !strings.HasSuffix(flagName, "-id") {
+									continue
+								}
+
+								flagName = strings.TrimPrefix(flagName, "data-relationships-")
+								flagName = strings.Replace(flagName, "-data-id", "-id", 1)
+
+								//Fetch description from parent instead
+								description = relationshipDesc[flagName]
+							}
+
+							theType := attribute.Value.Type
+							if inheritType != "" {
+								theType = inheritType
+							}
+
+							flags[flagName] = Parameter{
+								varType:     theType,
+								description: description,
+								required:    required,
+								enum:        attribute.Value.Enum,
+							}
+
 						}
 
 					}
 
-				}
+					collectAttributes(object.RequestBody.Value.Content[contentType].Schema.Value, "", "")
 
-				collectAttributes(object.RequestBody.Value.Content[contentType].Schema.Value, "", "")
+				}
 
 			}
 
@@ -317,27 +324,6 @@ func printHelpCommand(command string) {
 					}
 				}
 			}
-
-			/*
-				//Probably better to add a flag to show examples?
-
-				if object.RequestBody != nil && object.RequestBody.Value.Content["application/vnd.api+json"].Examples["default"] != nil {
-
-						fmt.Print("\njson-blob.txt example:", "\n")
-
-						var data map[string]any
-						//TODO: Loop through and show ALL examples, not only default!
-						err := json.Unmarshal([]byte(object.RequestBody.Value.Content["application/vnd.api+json"].Examples["default"].Value.Value.(string)), &data)
-						if err != nil {
-							panic(err)
-						}
-
-						example, _ := json.MarshalIndent(data, "", "    ")
-						exampleIndented := "  " + strings.ReplaceAll(string(example), "\n", "\n  ")
-
-						fmt.Println(exampleIndented)
-					}
-			*/
 
 			fmt.Println("")
 
