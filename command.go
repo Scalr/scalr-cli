@@ -401,7 +401,7 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 		query.Set("page[number]", strconv.Itoa(page))
 
 		if verbose {
-			fmt.Println(method, "https://"+ScalrHostname+uri+"?"+query.Encode())
+			fmt.Println(method, "https://"+ScalrHostname+BasePath+uri+"?"+query.Encode())
 
 			if contentType != "" {
 				fmt.Println("Content-Type = " + contentType)
@@ -410,7 +410,7 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 
 		}
 
-		req, err := http.NewRequest(method, "https://"+ScalrHostname+uri+"?"+query.Encode(), strings.NewReader(body))
+		req, err := http.NewRequest(method, "https://"+ScalrHostname+BasePath+uri+"?"+query.Encode(), strings.NewReader(body))
 		checkErr(err)
 
 		req.Header.Set("User-Agent", "scalr-cli/"+versionCLI)
@@ -485,9 +485,13 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 //Parse error response and show it to user
 func showError(resBody []byte) {
 
-	jsonParsed, _ := gabs.ParseJSON(resBody)
+	jsonParsed, err := gabs.ParseJSON(resBody)
+	if err != nil {
+		fmt.Println("Server did return a valid JSON response")
+	} else {
+		fmt.Println(jsonParsed.StringIndent("", "  "))
+	}
 
-	fmt.Println(jsonParsed.StringIndent("", "  "))
 	os.Exit(1)
 }
 
