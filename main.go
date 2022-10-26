@@ -20,6 +20,7 @@ var (
 	ScalrHostname string
 	ScalrToken    string
 	ScalrAccount  string
+	BasePath      string
 )
 
 const (
@@ -192,6 +193,20 @@ func loadAPI() *openapi3.T {
 	//Validate the specification
 	err = doc.Validate(loader.Context)
 	checkErr(err)
+
+	//Read BasePath from servers section, if exists
+	BasePath = ""
+	if doc.Servers != nil {
+		//fmt.Printf("%+#v", doc.Servers[0].URL)
+
+		u := strings.ReplaceAll(doc.Servers[0].URL, "{", "")
+		u = strings.ReplaceAll(u, "}", "")
+
+		parts, err := url.Parse(u)
+		checkErr(err)
+
+		BasePath = parts.Path
+	}
 
 	return doc
 }
