@@ -267,7 +267,13 @@ func collectRequired(root *openapi3.Schema) map[string]bool {
 
 		//data should always be considered as required
 		if prefix == "" && nested.Properties["data"] != nil {
-			recursive(nested.Properties["data"].Value, prefix+"data-")
+
+			if nested.Properties["data"].Value.Type == "array" {
+				recursive(nested.Properties["data"].Value.Items.Value, prefix+"data-")
+			} else {
+				recursive(nested.Properties["data"].Value, prefix+"data-")
+			}
+
 		}
 
 		//Collect all availble attributes for this command

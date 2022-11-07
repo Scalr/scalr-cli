@@ -102,10 +102,10 @@ func parseCommand(format string, verbose bool) {
 					//Recursively collect all required fields
 					requiredFlags = collectRequired(action.RequestBody.Value.Content[contentType].Schema.Value)
 
-					var collectAttributes func(*openapi3.Schema, string)
+					var collectAttributes func(*openapi3.Schema, string, string)
 
 					//Function to support nested objects
-					collectAttributes = func(nested *openapi3.Schema, prefix string) {
+					collectAttributes = func(nested *openapi3.Schema, prefix string, inheritType string) {
 
 						//Collect all availble attributes for this command
 						for name, attribute := range nested.Properties {
@@ -118,19 +118,19 @@ func parseCommand(format string, verbose bool) {
 							flagName := prefix + name
 
 							//Ignore ID-field that is redundant
-							if flagName == "data-id" {
+							if flagName == "data-id" && inheritType == "" {
 								continue
 							}
 
 							//Nested object, needs to drill down deeper
 							if attribute.Value.Type == "object" {
-								collectAttributes(attribute.Value, flagName+"-")
+								collectAttributes(attribute.Value, flagName+"-", "")
 								continue
 							}
 
 							//Arrays might include objects that needs to be drilled down deeper
 							if attribute.Value.Type == "array" && attribute.Value.Items.Value.Type == "object" {
-								collectAttributes(attribute.Value.Items.Value, flagName+"-")
+								collectAttributes(attribute.Value.Items.Value, flagName+"-", "array")
 								continue
 							}
 
@@ -159,7 +159,7 @@ func parseCommand(format string, verbose bool) {
 
 					}
 
-					collectAttributes(action.RequestBody.Value.Content[contentType].Schema.Value, "")
+					collectAttributes(action.RequestBody.Value.Content[contentType].Schema.Value, "", "")
 
 				}
 
@@ -384,6 +384,8 @@ func shortenName(flagName string) string {
 		flagName = strings.TrimPrefix(flagName, "data-relationships-")
 		flagName = strings.Replace(flagName, "-data-id", "-id", 1)
 	}
+
+	flagName = strings.TrimPrefix(flagName, "data-")
 
 	return flagName
 }
