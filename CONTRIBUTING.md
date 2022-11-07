@@ -1,6 +1,6 @@
-# How to contribute to the Scalr CLI Tool
+# How to contribute to the Scalr CLI
 ## Basic steps
-Here are the basic step to make a change and contribute it back to the project.
+Here are the basic steps to make a change and contribute it back to the project.
 
 1. [Fork](https://docs.github.com/en/get-started/quickstart/fork-a-repo) the [Scalr/scalr-cli](https://github.com/Scalr/scalr-cli) repo.
 2. Make the changes and commit to your fork.
@@ -18,6 +18,6 @@ If you want to produce binaries for all supported operating systems and architec
 
 We try to make it as easy and painless as possible to contribute back to the project. However, some minimal rules must be followed to keep the project in good shape and maintain quality.
 
-1. Each pull request should contain only **one** bugfix/feature. If you want to add serveral features, please make individual pull requests for each one. Putting lots of changes in one single PR will make it harder for the maintainers to approve it, as **all** new changes will need to be tested and approved as a whole. Splitting it into individual requests makes it possible to approve some, while others can be pushed back for additional work.
+1. Each pull request should contain only **one** bugfix/feature. If you want to add several features, please make individual pull requests for each one. Putting lots of changes in one single PR will make it harder for the maintainers to approve it, as **all** new changes will need to be tested and approved as a whole. Splitting it into individual requests makes it possible to approve some, while others can be pushed back for additional work.
 
-2. Make sure that each commit has a **clear** and **complete** title and description on what has been fixed/changed/updated/added. As this will be used for building the release changelog, it's important that it's accurate and explains to the users what updating to this version will entail. Changes that breaks backwards copatibility is discouraged and needs a very strong reason to be approved.
+2. Make sure that each commit has a **clear** and **complete** title and description on what has been fixed/changed/updated/added. As this will be used for building the release changelog, it's important that it's accurate and explains to the users what updating to this version will entail. Changes that breaks backwards compatibility is discouraged and needs a very strong reason to be approved.
