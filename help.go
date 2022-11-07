@@ -196,7 +196,7 @@ func printHelpCommand(command string) {
 							flagName := prefix + name
 
 							//Ignore ID-field that is redundant
-							if flagName == "data-id" {
+							if flagName == "data-id" && inheritType == "" {
 								continue
 							}
 
@@ -241,6 +241,8 @@ func printHelpCommand(command string) {
 								//Fetch description from parent instead
 								description = relationshipDesc[flagName]
 							}
+
+							flagName = strings.TrimPrefix(flagName, "data-")
 
 							theType := attribute.Value.Type
 							if inheritType != "" {

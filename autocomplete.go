@@ -200,7 +200,7 @@ func collectFlagsAndOptions() map[string]map[string][]string {
 					flagName := prefix + name
 
 					//Ignore ID-field that is redundant
-					if flagName == "data-id" {
+					if flagName == "data-id" && inheritType == "" {
 						continue
 					}
 
@@ -240,6 +240,8 @@ func collectFlagsAndOptions() map[string]map[string][]string {
 						flagName = strings.TrimPrefix(flagName, "data-relationships-")
 						flagName = strings.Replace(flagName, "-data-id", "-id", 1)
 					}
+
+					flagName = strings.TrimPrefix(flagName, "data-")
 
 					allFlags[command][flagName] = []string{}
 
