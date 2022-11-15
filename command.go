@@ -61,8 +61,8 @@ func parseCommand(format string, verbose bool) {
 			//Collect all valid URI flags for this command
 			for _, parameter := range action.Parameters {
 
-				//Ignore paging flags
-				if parameter.Value.Name == "page[number]" || parameter.Value.Name == "page[size]" {
+				//Ignore some flags
+				if parameter.Value.Name == "page[number]" || parameter.Value.Name == "page[size]" || parameter.Value.Name == "fields" {
 					continue
 				}
 
