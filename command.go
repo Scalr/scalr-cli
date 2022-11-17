@@ -489,7 +489,7 @@ func showError(resBody []byte) {
 
 	jsonParsed, err := gabs.ParseJSON(resBody)
 	if err != nil {
-		fmt.Println("Server did return a valid JSON response")
+		fmt.Println("Server did not return a valid JSON response")
 	} else {
 		fmt.Println(jsonParsed.StringIndent("", "  "))
 	}
