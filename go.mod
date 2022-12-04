@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/Jeffail/gabs/v2 v2.6.1
-	github.com/getkin/kin-openapi v0.107.0
+	github.com/getkin/kin-openapi v0.110.0
 	golang.org/x/term v0.0.0-20220722155259-a9ba230a4035
 )
 
