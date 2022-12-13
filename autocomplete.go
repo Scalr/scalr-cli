@@ -143,7 +143,10 @@ func collectFlagsAndOptions() map[string]map[string][]string {
 			for _, parameter := range object.Parameters {
 
 				//Ignore some parameters
-				if parameter.Value.Name == "page[number]" || parameter.Value.Name == "page[size]" || parameter.Value.Name == "fields" {
+				if parameter.Value.Name == "page[number]" ||
+					parameter.Value.Name == "page[size]" ||
+					parameter.Value.Name == "fields" ||
+					parameter.Value.Name == "Prefer" {
 					continue
 				}
 
