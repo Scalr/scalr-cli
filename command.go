@@ -62,7 +62,10 @@ func parseCommand(format string, verbose bool) {
 			for _, parameter := range action.Parameters {
 
 				//Ignore some flags
-				if parameter.Value.Name == "page[number]" || parameter.Value.Name == "page[size]" || parameter.Value.Name == "fields" {
+				if parameter.Value.Name == "page[number]" ||
+					parameter.Value.Name == "page[size]" ||
+					parameter.Value.Name == "fields" ||
+					parameter.Value.Name == "Prefer" {
 					continue
 				}
 
