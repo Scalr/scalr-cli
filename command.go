@@ -96,73 +96,77 @@ func parseCommand(format string, verbose bool) {
 
 			if method == "POST" || method == "PATCH" || method == "DELETE" {
 
-				for contentType = range action.RequestBody.Value.Content {
-				}
+				if action.RequestBody != nil {
 
-				//If no schema is defined for the body, no need to look for futher fields
-				if action.RequestBody.Value.Content[contentType].Schema != nil {
+					for contentType = range action.RequestBody.Value.Content {
+					}
 
-					//Recursively collect all required fields
-					requiredFlags = collectRequired(action.RequestBody.Value.Content[contentType].Schema.Value)
+					//If no schema is defined for the body, no need to look for futher fields
+					if action.RequestBody.Value.Content[contentType].Schema != nil {
 
-					var collectAttributes func(*openapi3.Schema, string, string)
+						//Recursively collect all required fields
+						requiredFlags = collectRequired(action.RequestBody.Value.Content[contentType].Schema.Value)
 
-					//Function to support nested objects
-					collectAttributes = func(nested *openapi3.Schema, prefix string, inheritType string) {
+						var collectAttributes func(*openapi3.Schema, string, string)
 
-						//Collect all availble attributes for this command
-						for name, attribute := range nested.Properties {
+						//Function to support nested objects
+						collectAttributes = func(nested *openapi3.Schema, prefix string, inheritType string) {
 
-							//Ignore read-only attributes in body
-							if attribute.Value.ReadOnly {
-								continue
+							//Collect all availble attributes for this command
+							for name, attribute := range nested.Properties {
+
+								//Ignore read-only attributes in body
+								if attribute.Value.ReadOnly {
+									continue
+								}
+
+								flagName := prefix + name
+
+								//Ignore ID-field that is redundant
+								if flagName == "data-id" && inheritType == "" {
+									continue
+								}
+
+								//Nested object, needs to drill down deeper
+								if attribute.Value.Type == "object" {
+									collectAttributes(attribute.Value, flagName+"-", "")
+									continue
+								}
+
+								//Arrays might include objects that needs to be drilled down deeper
+								if attribute.Value.Type == "array" && attribute.Value.Items.Value.Type == "object" {
+									collectAttributes(attribute.Value.Items.Value, flagName+"-", "array")
+									continue
+								}
+
+								required := false
+								if requiredFlags[flagName] {
+									required = true
+								}
+
+								//If flag is required and only one value is available, no need to offer it to the user
+								if required && attribute.Value.Enum != nil && len(attribute.Value.Enum) == 1 {
+									continue
+								}
+
+								flagName = shortenName(flagName)
+
+								flags[flagName] = Parameter{
+									location: "body",
+									required: required,
+									enum:     attribute.Value.Enum,
+									value:    new(string),
+								}
+
+								subFlag.StringVar(flags[flagName].value, flagName, "", attribute.Value.Description)
+
 							}
-
-							flagName := prefix + name
-
-							//Ignore ID-field that is redundant
-							if flagName == "data-id" && inheritType == "" {
-								continue
-							}
-
-							//Nested object, needs to drill down deeper
-							if attribute.Value.Type == "object" {
-								collectAttributes(attribute.Value, flagName+"-", "")
-								continue
-							}
-
-							//Arrays might include objects that needs to be drilled down deeper
-							if attribute.Value.Type == "array" && attribute.Value.Items.Value.Type == "object" {
-								collectAttributes(attribute.Value.Items.Value, flagName+"-", "array")
-								continue
-							}
-
-							required := false
-							if requiredFlags[flagName] {
-								required = true
-							}
-
-							//If flag is required and only one value is available, no need to offer it to the user
-							if required && attribute.Value.Enum != nil && len(attribute.Value.Enum) == 1 {
-								continue
-							}
-
-							flagName = shortenName(flagName)
-
-							flags[flagName] = Parameter{
-								location: "body",
-								required: required,
-								enum:     attribute.Value.Enum,
-								value:    new(string),
-							}
-
-							subFlag.StringVar(flags[flagName].value, flagName, "", attribute.Value.Description)
 
 						}
 
-					}
+						collectAttributes(action.RequestBody.Value.Content[contentType].Schema.Value, "", "")
 
-					collectAttributes(action.RequestBody.Value.Content[contentType].Schema.Value, "", "")
+					}
 
 				}
 
@@ -254,107 +258,109 @@ func parseCommand(format string, verbose bool) {
 						os.Exit(1)
 					}
 
-					raw := gabs.New()
+					if action.RequestBody != nil {
+						raw := gabs.New()
 
-					var collectAttributes func(*openapi3.Schema, string)
+						var collectAttributes func(*openapi3.Schema, string)
 
-					//Function to support nested objects
-					collectAttributes = func(nested *openapi3.Schema, prefix string) {
+						//Function to support nested objects
+						collectAttributes = func(nested *openapi3.Schema, prefix string) {
 
-						//Collect all availble attributes for this command
-						for name, attribute := range nested.Properties {
+							//Collect all availble attributes for this command
+							for name, attribute := range nested.Properties {
 
-							//Ignore read-only attributes in body
-							if attribute.Value.ReadOnly {
-								continue
-							}
+								//Ignore read-only attributes in body
+								if attribute.Value.ReadOnly {
+									continue
+								}
 
-							path := prefix + name
+								path := prefix + name
 
-							//Nested object, needs to drill down deeper
-							if attribute.Value.Type == "object" {
-								collectAttributes(attribute.Value, path+".")
-								continue
-							}
+								//Nested object, needs to drill down deeper
+								if attribute.Value.Type == "object" {
+									collectAttributes(attribute.Value, path+".")
+									continue
+								}
 
-							//Special case for arrays of objects used in relationships
-							if attribute.Value.Type == "array" && attribute.Value.Items.Value.Type == "object" {
-								path = path + ".id"
-								attribute.Value.Type = "relationship"
-							}
+								//Special case for arrays of objects used in relationships
+								if attribute.Value.Type == "array" && attribute.Value.Items.Value.Type == "object" {
+									path = path + ".id"
+									attribute.Value.Type = "relationship"
+								}
 
-							flagName := strings.ReplaceAll(path, ".", "-")
+								flagName := strings.ReplaceAll(path, ".", "-")
 
-							required := false
-							if requiredFlags[flagName] {
-								required = true
-							}
-
-							//Special case to auto-add type in relationships if ID is set
-							if strings.HasPrefix(flagName, "data-relationships-") && name == "type" {
-								id := strings.Replace(shortenName(flagName), "-data-type", "-id", 1)
-
-								if *flags[id].value != "" {
+								required := false
+								if requiredFlags[flagName] {
 									required = true
 								}
-							}
 
-							//If required and only one value is available, use it
-							if required && attribute.Value.Enum != nil && len(attribute.Value.Enum) == 1 {
-								raw.SetP(attribute.Value.Enum[0], path)
-								continue
-							}
+								//Special case to auto-add type in relationships if ID is set
+								if strings.HasPrefix(flagName, "data-relationships-") && name == "type" {
+									id := strings.Replace(shortenName(flagName), "-data-type", "-id", 1)
 
-							flagName = shortenName(flagName)
-
-							if _, ok := flags[flagName]; !ok {
-								continue
-							}
-
-							value := *flags[flagName].value
-
-							//Skip attribute if not set
-							if value == "" {
-								continue
-							}
-
-							switch attribute.Value.Type {
-							case "relationship":
-								//Special case for arrays in relationships
-								for _, item := range strings.Split(value, ",") {
-									sub := gabs.New()
-									sub.Set(item, "id")
-									sub.Set(attribute.Value.Items.Value.Properties["type"].Value.Enum[0], "type")
-
-									raw.ArrayAppendP(sub.Data(), strings.TrimSuffix(path, ".id"))
+									if *flags[id].value != "" {
+										required = true
+									}
 								}
 
-							case "boolean":
-								val, _ := strconv.ParseBool(value)
-								raw.SetP(val, path)
+								//If required and only one value is available, use it
+								if required && attribute.Value.Enum != nil && len(attribute.Value.Enum) == 1 {
+									raw.SetP(attribute.Value.Enum[0], path)
+									continue
+								}
 
-							case "string":
-								raw.SetP(value, path)
+								flagName = shortenName(flagName)
 
-							case "integer":
-								val, _ := strconv.Atoi(value)
-								raw.SetP(val, path)
+								if _, ok := flags[flagName]; !ok {
+									continue
+								}
 
-							case "array":
-								raw.SetP(strings.Split(value, ","), path)
+								value := *flags[flagName].value
 
-							default:
-								//TODO: If code reaches here, means we need to add support for more field types!
-								fmt.Println("IGNORE UNSUPPORTED FIELD", name, attribute.Value.Type)
+								//Skip attribute if not set
+								if value == "" {
+									continue
+								}
+
+								switch attribute.Value.Type {
+								case "relationship":
+									//Special case for arrays in relationships
+									for _, item := range strings.Split(value, ",") {
+										sub := gabs.New()
+										sub.Set(item, "id")
+										sub.Set(attribute.Value.Items.Value.Properties["type"].Value.Enum[0], "type")
+
+										raw.ArrayAppendP(sub.Data(), strings.TrimSuffix(path, ".id"))
+									}
+
+								case "boolean":
+									val, _ := strconv.ParseBool(value)
+									raw.SetP(val, path)
+
+								case "string":
+									raw.SetP(value, path)
+
+								case "integer":
+									val, _ := strconv.Atoi(value)
+									raw.SetP(val, path)
+
+								case "array":
+									raw.SetP(strings.Split(value, ","), path)
+
+								default:
+									//TODO: If code reaches here, means we need to add support for more field types!
+									fmt.Println("IGNORE UNSUPPORTED FIELD", name, attribute.Value.Type)
+								}
+
 							}
 
 						}
 
+						collectAttributes(action.RequestBody.Value.Content[contentType].Schema.Value, "")
+
+						body = raw.StringIndent("", "  ")
 					}
-
-					collectAttributes(action.RequestBody.Value.Content[contentType].Schema.Value, "")
-
-					body = raw.StringIndent("", "  ")
 				}
 
 			} else {
