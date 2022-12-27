@@ -1,0 +1,23 @@
+name: Run all tests
+
+on: 
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Running all tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '>=1.18.0'
+
+      - name: Running all tests
+        env:
+          SCALR_HOSTNAME: ${{ secrets.SCALR_HOSTNAME }}
+          SCALR_TOKEN: ${{ secrets.SCALR_TOKEN }}
+          SCALR_ACCOUNT: ${{ secrets.SCALR_ACCOUNT }}
+        run: |
+          go test -v -failfast
