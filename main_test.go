@@ -79,14 +79,67 @@ func Test_Version(t *testing.T) {
 
 }
 
+func Test_Tags(t *testing.T) {
+
+	account_id, _ := os.LookupEnv("SCALR_ACCOUNT")
+	name := "test-tag"
+
+	t.Log("Create tag")
+
+	_, output, err := run_test("create-tag", "-account-id="+account_id, "-name="+name)
+
+	if err != nil {
+		t.Fatalf(output.String())
+	}
+
+	tag_id := output.Search("id").Data().(string)
+
+	t.Log("Get tag")
+
+	message, output, err := run_test("get-tag", "-tag="+tag_id)
+
+	if err != nil {
+		t.Fatalf(message)
+	}
+
+	if output.Search("name").Data().(string) != name {
+		t.Fatalf("Failed to get tag")
+	}
+
+	t.Log("Update tag")
+
+	message, _, err = run_test("update-tag", "-tag="+tag_id, "-name="+name+"-2")
+
+	if err != nil {
+		t.Fatalf(message)
+	}
+
+	t.Log("Delete tag")
+
+	message, _, err = run_test("delete-tag", "-tag="+tag_id)
+
+	if err != nil {
+		t.Fatalf(message)
+	}
+
+	t.Log("Confirm tag deletion")
+
+	_, _, err = run_test("get-tag", "-tag="+tag_id)
+
+	if err == nil {
+		t.Fatalf("Tag still exists")
+	}
+
+}
+
 func Test_Environment(t *testing.T) {
 
 	//t.Parallel()
 
-	t.Log("Creating environment")
-
 	account_id, _ := os.LookupEnv("SCALR_ACCOUNT")
 	name := "automated-test"
+
+	t.Log("Create environment")
 
 	_, output, err := run_test("create-environment", "-account-id="+account_id, "-name="+name)
 
@@ -120,6 +173,12 @@ func Test_Environment(t *testing.T) {
 		t.Fatalf("Failed to update environment")
 	}
 
+	//scalr add-environment-tags -environment=env-ud2fd7tkfl3e21g -id=tag-udffivoc6efoimg
+	//scalr list-environment-tags -environment=env-ud2fd7tkfl3e21g
+	//scalr create-tag -account-id=acc-ud2fd7shes2mt3g -name=test-tag-second
+	//scalr replace-environment-tags -environment=env-ud2fd7tkfl3e21g -id=tag-udfgbqj50gtjftg
+	//scalr delete-environment-tags -environment=env-ud2fd7tkfl3e21g -id=tag-udfgbqj50gtjftg
+
 	t.Log("Delete environment")
 
 	message, _, err = run_test("delete-environment", "-environment="+env_id)
@@ -134,6 +193,106 @@ func Test_Environment(t *testing.T) {
 
 	if err == nil {
 		t.Fatalf("Environment still exists")
+	}
+
+}
+
+func Test_Workspace(t *testing.T) {
+
+	account_id, _ := os.LookupEnv("SCALR_ACCOUNT")
+	environment_name := "automated-test"
+	workspace_name := "automated-test"
+
+	t.Log("Create environment")
+
+	_, output, err := run_test("create-environment", "-account-id="+account_id, "-name="+environment_name)
+
+	if err != nil {
+		t.Fatalf(output.String())
+	}
+
+	env_id := output.Search("id").Data().(string)
+
+	if env_id == "" {
+		t.Fatalf("Failed to create environment")
+	}
+
+	t.Log("Create workspace")
+
+	_, output, err = run_test("create-workspace", "-environment-id="+env_id, "-name="+workspace_name)
+
+	if err != nil {
+		t.Fatalf(output.String())
+	}
+
+	workspace_id := output.Search("id").Data().(string)
+
+	if env_id == "" {
+		t.Fatalf("Failed to create workspace")
+	}
+
+	t.Log("Get workspace")
+
+	message, output, err := run_test("get-workspace", "-workspace="+workspace_id)
+
+	if err != nil {
+		t.Fatalf(message)
+	}
+
+	if output.Search("name").Data().(string) != workspace_name {
+		t.Fatalf("Failed to get workspace")
+	}
+
+	t.Log("Update workspace")
+
+	_, output, err = run_test("update-workspace", "-workspace="+workspace_id, "-name="+workspace_name+"-2")
+
+	if err != nil {
+		t.Fatalf(output.String())
+	}
+
+	t.Log("Lock workspace")
+
+	_, output, err = run_test("lock-workspace", "-workspace="+workspace_id)
+
+	if err != nil {
+		t.Fatalf(output.String())
+	}
+
+	t.Log("Unlock workspace")
+
+	_, output, err = run_test("unlock-workspace", "-workspace="+workspace_id)
+
+	if err != nil {
+		t.Fatalf(output.String())
+	}
+
+	//resync-workspace
+	//set-schedule
+	//workspace tags
+
+	t.Log("Delete workspace")
+
+	message, _, err = run_test("delete-workspace", "-workspace="+workspace_id)
+
+	if err != nil {
+		t.Fatalf(message)
+	}
+
+	t.Log("Confirm workspace deletion")
+
+	_, _, err = run_test("get-workspace", "-workspace="+workspace_id)
+
+	if err == nil {
+		t.Fatalf("workspace still exists")
+	}
+
+	t.Log("Delete environment")
+
+	message, _, err = run_test("delete-environment", "-environment="+env_id)
+
+	if err != nil {
+		t.Fatalf(message)
 	}
 
 }
