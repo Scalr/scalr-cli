@@ -1,4 +1,5 @@
-![e2e workflow](https://github.com/Scalr/scalr-cli/actions/workflows/testing.yml/badge.svg)
+# Scalr CLI
+[![e2e workflow](https://github.com/Scalr/scalr-cli/actions/workflows/testing.yml/badge.svg)](https://github.com/Scalr/scalr-cli/actions/workflows/testing.yml)
 
 "scalr" is a command-line tool that communicates directly with the Scalr API.
 
