@@ -1,4 +1,4 @@
-name: Run all tests
+name: End-to-end testing
 
 on: 
   schedule:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   test:
-    name: Running all tests
+    name: Run all tests
     runs-on: ubuntu-latest
 
     steps:

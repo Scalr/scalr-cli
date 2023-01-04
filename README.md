@@ -1,3 +1,5 @@
+![e2e workflow](https://github.com/Scalr/scalr-cli/actions/workflows/testing.yml/badge.svg)
+
 "scalr" is a command-line tool that communicates directly with the Scalr API.
 
 ## Beta Software
