@@ -1,4 +1,4 @@
-##Individual Contributor License Agreement
+## Individual Contributor License Agreement
 
 Thank you for your interest in contributing to Scalr projects. To clarify the intellectual property license granted with Contributions from any person or entity, Scalr must have on file a signed Contributor License Agreement ("CLA") from each Contributor, indicating agreement with the license terms below. This agreement is for your protection as a Contributor as well as the protection of Scalr and its users. It does not change your rights to use your own Contributions for any other purpose. 
 
