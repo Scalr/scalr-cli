@@ -323,7 +323,21 @@ func parseCommand(format string, verbose bool) {
 									continue
 								}
 
-								switch attribute.Value.Type {
+								theType := attribute.Value.Type
+
+								//If no type is specified, look deeper
+								if theType == "" && attribute.Value.AnyOf != nil {
+									for _, item := range attribute.Value.AnyOf {
+
+										if item.Value.Type != "" {
+											theType = item.Value.Type
+											break
+										}
+
+									}
+								}
+
+								switch theType {
 								case "relationship":
 									//Special case for arrays in relationships
 									for _, item := range strings.Split(value, ",") {

@@ -252,9 +252,22 @@ func collectFlagsAndOptions() map[string]map[string][]string {
 					if attribute.Value.Enum != nil {
 
 						for _, enum := range attribute.Value.Enum {
-							allFlags[command][flagName] = append(allFlags[command][flagName], enum.(string))
+							allFlags[command][flagName] = append(allFlags[command][flagName], enum.(string)+" ")
 						}
 
+					}
+
+					//Collect valid flag values in case of AnyOf
+					if attribute.Value.AnyOf != nil {
+						for _, item := range attribute.Value.AnyOf {
+
+							if item.Value.Enum != nil {
+								for _, enum := range item.Value.Enum {
+									allFlags[command][flagName] = append(allFlags[command][flagName], enum.(string)+" ")
+								}
+							}
+
+						}
 					}
 
 				}
