@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"regexp"
@@ -57,13 +56,13 @@ func printHelp() {
 	for _, path := range doc.Paths {
 		for _, method := range path.Operations() {
 
-			var group string
+			group := ""
 
-			json.Unmarshal(method.ExtensionProps.Extensions["x-resource"].(json.RawMessage), &group)
-
-			//Fallback to Tag if x-resource group is missing
-			if group == "" {
+			if method.Extensions["x-resource"] == nil {
+				//Fallback to Tag if x-resource group is missing
 				group = strings.Title(method.Tags[0])
+			} else {
+				group = method.Extensions["x-resource"].(string)
 			}
 
 			//Add a space before each uppercase letter
@@ -252,11 +251,28 @@ func printHelpCommand(command string) {
 								theType = inheritType
 							}
 
+							enum := attribute.Value.Enum
+
+							//Special case: ProviderConfiguration and maybe others?
+							if theType == "" && attribute.Value.AnyOf != nil {
+								for _, item := range attribute.Value.AnyOf {
+
+									if item.Value.Enum != nil {
+										enum = item.Value.Enum
+									}
+
+									if item.Value.Type != "" {
+										theType = item.Value.Type
+									}
+
+								}
+							}
+
 							flags[flagName] = Parameter{
 								varType:     theType,
 								description: description,
 								required:    required,
-								enum:        attribute.Value.Enum,
+								enum:        enum,
 							}
 
 						}
