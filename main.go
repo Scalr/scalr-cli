@@ -92,44 +92,25 @@ func main() {
 
 	}
 
-	//Load configuration
-	if os.Getenv("SCALR_HOSTNAME") == "" || os.Getenv("SCALR_TOKEN") == "" {
+	//Load config from environment
+	ScalrHostname = os.Getenv("SCALR_HOSTNAME")
+	ScalrToken = os.Getenv("SCALR_TOKEN")
+	ScalrAccount = os.Getenv("SCALR_ACCOUNT")
 
-		home, err := os.UserHomeDir()
-		checkErr(err)
+	//Load config from scalr.conf
+	ScalrHostname, ScalrToken, ScalrAccount = loadConfigScalr(ScalrHostname, ScalrToken, ScalrAccount)
 
-		home = home + "/.scalr/"
-		config := "scalr.conf"
+	//Load config from credentials.tfrc.json
+	ScalrHostname, ScalrToken = loadConfigTerraform(ScalrHostname, ScalrToken)
 
-		content, err := ioutil.ReadFile(home + config)
-		if err != nil {
-
-			//End here if this is a compretion request
-			if os.Getenv("COMP_LINE") != "" {
-				return
-			}
-
-			fmt.Print("\n", "Not configured! Please run 'scalr -configure' or set environment variables SCALR_HOSTNAME and SCALR_TOKEN", "\n\n")
+	if ScalrHostname == "" || ScalrToken == "" {
+		//End here if this is a completion request
+		if os.Getenv("COMP_LINE") != "" {
 			return
 		}
 
-		jsonParsed, err := gabs.ParseJSON(content)
-		checkErr(err)
-
-		ScalrHostname = jsonParsed.Search("hostname").Data().(string)
-		ScalrToken = jsonParsed.Search("token").Data().(string)
-
-		if jsonParsed.Search("account") != nil {
-			ScalrAccount = jsonParsed.Search("account").Data().(string)
-		} else {
-			ScalrAccount = os.Getenv("SCALR_ACCOUNT")
-		}
-
-	} else {
-		//Read config from Environment
-		ScalrHostname = os.Getenv("SCALR_HOSTNAME")
-		ScalrToken = os.Getenv("SCALR_TOKEN")
-		ScalrAccount = os.Getenv("SCALR_ACCOUNT")
+		fmt.Print("\n", "Not configured! Please run 'scalr -configure' or set environment variables SCALR_HOSTNAME and SCALR_TOKEN", "\n\n")
+		return
 	}
 
 	//This is tab compretion request
@@ -152,6 +133,71 @@ func checkErr(e error) {
 	if e != nil {
 		panic(e)
 	}
+}
+
+//Load config from scalr.conf
+func loadConfigScalr(hostname string, token string, account string) (string, string, string) {
+	home, err := os.UserHomeDir()
+	checkErr(err)
+
+	home = home + "/.scalr/"
+	config := "scalr.conf"
+
+	content, err := ioutil.ReadFile(home + config)
+	if err != nil {
+		return hostname, token, account
+	}
+
+	jsonParsed, err := gabs.ParseJSON(content)
+	checkErr(err)
+
+	if jsonParsed.Search("hostname") != nil && hostname == "" {
+		hostname = jsonParsed.Search("hostname").Data().(string)
+	}
+
+	if jsonParsed.Search("token") != nil && token == "" {
+		token = jsonParsed.Search("token").Data().(string)
+	}
+
+	if jsonParsed.Search("account") != nil && account == "" {
+		account = jsonParsed.Search("account").Data().(string)
+	}
+
+	return hostname, token, account
+}
+
+//Load config from credentials.tfrc.json
+func loadConfigTerraform(hostname string, token string) (string, string) {
+	home, err := os.UserHomeDir()
+	checkErr(err)
+
+	content, err := ioutil.ReadFile(home + "/.terraform.d/credentials.tfrc.json")
+	if err != nil {
+		return hostname, token
+	}
+
+	jsonParsed, err := gabs.ParseJSON(content)
+	checkErr(err)
+
+	if hostname != "" {
+		//Try to load token for current hostname
+		if jsonParsed.Search("credentials", hostname, "token") != nil {
+			token = jsonParsed.Search("credentials", hostname, "token").Data().(string)
+		}
+	} else {
+		credentials := jsonParsed.Search("credentials").ChildrenMap()
+		if (len(credentials) == 1) {
+			//Only exactly one credential entry exists, use it
+			for key, value := range credentials {
+				hostname = key
+				if value.Search("token") != nil {
+					token = value.Search("token").Data().(string)
+				}
+			}
+		}
+	}
+
+	return hostname, token
 }
 
 //Loads OpenAPI specification
