@@ -3,7 +3,7 @@ module scalr.io/cli
 go 1.18
 
 require (
-	github.com/Jeffail/gabs/v2 v2.6.1
+	github.com/Jeffail/gabs/v2 v2.7.0
 	github.com/getkin/kin-openapi v0.115.0
 	golang.org/x/term v0.6.0
 )
