@@ -28,7 +28,7 @@ do
 
     BINARY="scalr-cli_${VERSION}_${GOOS}_${GOARCH}${EXT}"
 
-    GOOS=$GOOS GOARCH=$GOARCH go build -ldflags="-s -w" -o bin/$BINARY .
+    CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH go build -ldflags="-s -w" -o bin/$BINARY -a -ldflags '-extldflags "-static"' .
     cd bin
       chmod +x $BINARY
       mv $BINARY "scalr${EXT}"
