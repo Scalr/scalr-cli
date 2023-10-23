@@ -128,14 +128,14 @@ func main() {
 
 }
 
-//Check for error and panic
+// Check for error and panic
 func checkErr(e error) {
 	if e != nil {
 		panic(e)
 	}
 }
 
-//Load config from scalr.conf
+// Load config from scalr.conf
 func loadConfigScalr(hostname string, token string, account string) (string, string, string) {
 	home, err := os.UserHomeDir()
 	checkErr(err)
@@ -166,7 +166,7 @@ func loadConfigScalr(hostname string, token string, account string) (string, str
 	return hostname, token, account
 }
 
-//Load config from credentials.tfrc.json
+// Load config from credentials.tfrc.json
 func loadConfigTerraform(hostname string, token string) (string, string) {
 	home, err := os.UserHomeDir()
 	checkErr(err)
@@ -186,7 +186,7 @@ func loadConfigTerraform(hostname string, token string) (string, string) {
 		}
 	} else {
 		credentials := jsonParsed.Search("credentials").ChildrenMap()
-		if (len(credentials) == 1) {
+		if len(credentials) == 1 {
 			//Only exactly one credential entry exists, use it
 			for key, value := range credentials {
 				hostname = key
@@ -200,27 +200,27 @@ func loadConfigTerraform(hostname string, token string) (string, string) {
 	return hostname, token
 }
 
-//Loads OpenAPI specification
+// Loads OpenAPI specification
 func loadAPI() *openapi3.T {
-
-	home, err := os.UserHomeDir()
+	cacheDir, err := os.UserCacheDir()
 	checkErr(err)
 
-	home = home + "/.scalr/"
-	spec := "cache-" + fmt.Sprintf("%x", md5.Sum([]byte(ScalrHostname))) + "-openapi-preview.yml"
+	cacheDir = cacheDir + "/.scalr/"
 
-	if _, err := os.Stat(home); os.IsNotExist(err) {
-		os.MkdirAll(home, 0700)
+	if _, err := os.Stat(cacheDir); os.IsNotExist(err) {
+		os.MkdirAll(cacheDir, 0700)
 	}
 
-	if info, err := os.Stat(home + spec); !os.IsNotExist(err) {
+	spec := cacheDir + "cache-" + fmt.Sprintf("%x", md5.Sum([]byte(ScalrHostname))) + "-openapi-preview.yml"
+
+	if info, err := os.Stat(spec); !os.IsNotExist(err) {
 		if time.Since(info.ModTime()).Hours() > 24 {
 			//Cache is more than 24 hours old, re-Download...
-			downloadFile("https://"+ScalrHostname+"/api/iacp/v3/openapi-preview.yml", home+spec)
+			downloadFile("https://"+ScalrHostname+"/api/iacp/v3/openapi-preview.yml", spec)
 		}
 	} else {
 		//Download spec
-		downloadFile("https://"+ScalrHostname+"/api/iacp/v3/openapi-preview.yml", home+spec)
+		downloadFile("https://"+ScalrHostname+"/api/iacp/v3/openapi-preview.yml", spec)
 	}
 
 	loader := openapi3.NewLoader()
@@ -229,7 +229,7 @@ func loadAPI() *openapi3.T {
 	//Prevent loading external example files which makes the CLI too slow
 	loader.ReadFromURIFunc = disableExternalFiles(openapi3.ReadFromURIs(openapi3.ReadFromHTTP(http.DefaultClient), openapi3.ReadFromFile))
 
-	doc, err := loader.LoadFromFile(home + spec)
+	doc, err := loader.LoadFromFile(spec)
 
 	//api, _ := url.Parse("https://scalr.io/api/iacp/v3/openapi-preview.yml")
 	//doc, err := loader.LoadFromURI(api)
@@ -270,7 +270,7 @@ func disableExternalFiles(reader openapi3.ReadFromURIFunc) openapi3.ReadFromURIF
 	}
 }
 
-//Downloads a file
+// Downloads a file
 func downloadFile(URL string, fileName string) {
 
 	client := &http.Client{}
@@ -301,7 +301,7 @@ func downloadFile(URL string, fileName string) {
 
 }
 
-//Recursively collect all required fields
+// Recursively collect all required fields
 func collectRequired(root *openapi3.Schema) map[string]bool {
 
 	requiredFields := make(map[string]bool)
