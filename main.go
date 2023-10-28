@@ -5,7 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -143,7 +143,7 @@ func loadConfigScalr(hostname string, token string, account string) (string, str
 	home = home + "/.scalr/"
 	config := "scalr.conf"
 
-	content, err := ioutil.ReadFile(home + config)
+	content, err := os.ReadFile(home + config)
 	if err != nil {
 		return hostname, token, account
 	}
@@ -171,7 +171,7 @@ func loadConfigTerraform(hostname string, token string) (string, string) {
 	home, err := os.UserHomeDir()
 	checkErr(err)
 
-	content, err := ioutil.ReadFile(home + "/.terraform.d/credentials.tfrc.json")
+	content, err := os.ReadFile(home + "/.terraform.d/credentials.tfrc.json")
 	if err != nil {
 		return hostname, token
 	}
@@ -284,7 +284,7 @@ func downloadFile(URL string, fileName string) {
 	checkErr(err)
 
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	checkErr(err)
 
 	if resp.StatusCode != 200 {

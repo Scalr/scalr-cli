@@ -39,7 +39,7 @@ func printInfo() {
 
 }
 
-//Prints CLI help
+// Prints CLI help
 func printHelp() {
 
 	//Help for specified command
@@ -115,7 +115,7 @@ func printHelpCommand(command string) {
 	doc := loadAPI()
 
 	for _, path := range doc.Paths {
-		for _, object := range path.Operations() {
+		for method, object := range path.Operations() {
 
 			if command != strings.ReplaceAll(object.OperationID, "_", "-") {
 				continue
@@ -170,7 +170,12 @@ func printHelpCommand(command string) {
 				if object.RequestBody.Value.Content[contentType].Schema != nil {
 
 					//Recursively collect all required fields
-					requiredFlags := collectRequired(object.RequestBody.Value.Content[contentType].Schema.Value)
+					requiredFlags := map[string]bool{}
+
+					// FIXME: Disable required attributes for PATCH requests as the specs are incorrect
+					if method != "PATCH" {
+						requiredFlags = collectRequired(object.RequestBody.Value.Content[contentType].Schema.Value)
+					}
 
 					relationshipDesc := make(map[string]string)
 
