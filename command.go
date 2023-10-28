@@ -25,7 +25,7 @@ type Parameter struct {
 	value       *string
 }
 
-//Rename flags with odd names that causes issues in some shells
+// Rename flags with odd names that causes issues in some shells
 func renameFlag(name string) string {
 	name = strings.ReplaceAll(name, "[", "-")
 	name = strings.ReplaceAll(name, "]", "")
@@ -88,7 +88,7 @@ func parseCommand(format string, verbose bool) {
 				}
 
 				//TODO: If code reaches here, means support for new field-type is needed!
-				fmt.Println("IGNORE UNSUPPORTED FIELD", parameter.Value.Name, parameter.Value.Schema.Value.Type)
+				fmt.Println("IGNORE UNSUPPORTED FIELD. PLEASE LET THE MAINTAINER KNOW!", parameter.Value.Name, parameter.Value.Schema.Value.Type)
 
 			}
 
@@ -253,9 +253,17 @@ func parseCommand(format string, verbose bool) {
 
 				} else {
 
-					if len(missingBody) > 0 || len(missing) > 0 {
-						fmt.Printf("Missing required flag(s): %s\n", append(missing, missingBody...))
-						os.Exit(1)
+					// FIXME: Disable required attributes for PATCH requests as the specs are incorrect
+					if method != "PATCH" {
+						if len(missingBody) > 0 || len(missing) > 0 {
+							fmt.Printf("Missing required flag(s): %s\n", append(missing, missingBody...))
+							os.Exit(1)
+						}
+					} else {
+						if len(missing) > 0 {
+							fmt.Printf("Missing required flag(s): %s\n", missing)
+							os.Exit(1)
+						}
 					}
 
 					if action.RequestBody != nil {
@@ -301,6 +309,8 @@ func parseCommand(format string, verbose bool) {
 
 									if *flags[id].value != "" {
 										required = true
+									} else {
+										required = false
 									}
 								}
 
@@ -396,7 +406,7 @@ func parseCommand(format string, verbose bool) {
 	os.Exit(1)
 }
 
-//Helper function to shorter flag-names for convenience
+// Helper function to shorter flag-names for convenience
 func shortenName(flagName string) string {
 
 	//If this is an attribute, strip prefix to shorten flag-names
@@ -413,7 +423,7 @@ func shortenName(flagName string) string {
 	return flagName
 }
 
-//Make a request to the Scalr API
+// Make a request to the Scalr API
 func callAPI(method string, uri string, query url.Values, body string, contentType string, verbose bool, format string) {
 
 	output := gabs.New()
@@ -507,7 +517,7 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 
 }
 
-//Parse error response and show it to user
+// Parse error response and show it to user
 func showError(resBody []byte) {
 
 	jsonParsed, err := gabs.ParseJSON(resBody)
@@ -520,7 +530,7 @@ func showError(resBody []byte) {
 	os.Exit(1)
 }
 
-//Data JSON:API data to make it easier to work with
+// Data JSON:API data to make it easier to work with
 func parseData(response *gabs.Container) *gabs.Container {
 
 	output := gabs.New()

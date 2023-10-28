@@ -4,14 +4,16 @@ import (
 	"bytes"
 	"os"
 	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/Jeffail/gabs/v2"
 )
 
-//Run scalr binary and capture JSON output
-func run_test(params ...string) (string, *gabs.Container, error) {
+// Run scalr binary and capture JSON output
+func run_test(t *testing.T, params ...string) (string, *gabs.Container, error) {
 
+	t.Log(strings.Join(params, " "))
 	cmd := exec.Command("./scalr", params...)
 
 	var out bytes.Buffer
@@ -84,9 +86,24 @@ func Test_Tags(t *testing.T) {
 	account_id, _ := os.LookupEnv("SCALR_ACCOUNT")
 	name := "test-tag"
 
+	t.Log("List all tags")
+
+	_, output, err := run_test(t, "list-tags")
+
+	if err != nil {
+		t.Fatalf(output.String())
+	}
+
+	for _, child := range output.Children() {
+		if child.Search("name").Data().(string) == name {
+			t.Log("Test-tag already exists, delete")
+			run_test(t, "delete-tag", "-tag="+child.Search("id").Data().(string))
+		}
+	}
+
 	t.Log("Create tag")
 
-	_, output, err := run_test("create-tag", "-account-id="+account_id, "-name="+name)
+	_, output, err = run_test(t, "create-tag", "-account-id="+account_id, "-name="+name)
 
 	if err != nil {
 		t.Fatalf(output.String())
@@ -96,7 +113,7 @@ func Test_Tags(t *testing.T) {
 
 	t.Log("Get tag")
 
-	message, output, err := run_test("get-tag", "-tag="+tag_id)
+	message, output, err := run_test(t, "get-tag", "-tag="+tag_id)
 
 	if err != nil {
 		t.Fatalf(message)
@@ -108,7 +125,7 @@ func Test_Tags(t *testing.T) {
 
 	t.Log("Update tag")
 
-	message, _, err = run_test("update-tag", "-tag="+tag_id, "-name="+name+"-2")
+	message, _, err = run_test(t, "update-tag", "-tag="+tag_id, "-name="+name+"-2")
 
 	if err != nil {
 		t.Fatalf(message)
@@ -116,7 +133,7 @@ func Test_Tags(t *testing.T) {
 
 	t.Log("Delete tag")
 
-	message, _, err = run_test("delete-tag", "-tag="+tag_id)
+	message, _, err = run_test(t, "delete-tag", "-tag="+tag_id)
 
 	if err != nil {
 		t.Fatalf(message)
@@ -124,7 +141,7 @@ func Test_Tags(t *testing.T) {
 
 	t.Log("Confirm tag deletion")
 
-	_, _, err = run_test("get-tag", "-tag="+tag_id)
+	_, _, err = run_test(t, "get-tag", "-tag="+tag_id)
 
 	if err == nil {
 		t.Fatalf("Tag still exists")
@@ -139,9 +156,24 @@ func Test_Environment(t *testing.T) {
 	account_id, _ := os.LookupEnv("SCALR_ACCOUNT")
 	name := "automated-test"
 
+	t.Log("List all environments")
+
+	_, output, err := run_test(t, "list-environments")
+
+	if err != nil {
+		t.Fatalf(output.String())
+	}
+
+	for _, child := range output.Children() {
+		if child.Search("name").Data().(string) == name {
+			t.Log("Environment already exists, delete")
+			run_test(t, "delete-environment", "-environment="+child.Search("id").Data().(string))
+		}
+	}
+
 	t.Log("Create environment")
 
-	_, output, err := run_test("create-environment", "-account-id="+account_id, "-name="+name)
+	_, output, err = run_test(t, "create-environment", "-account-id="+account_id, "-name="+name)
 
 	if err != nil {
 		t.Fatalf(output.String())
@@ -155,7 +187,7 @@ func Test_Environment(t *testing.T) {
 
 	t.Log("Get environment")
 
-	message, output, err := run_test("get-environment", "-environment="+env_id)
+	message, output, err := run_test(t, "get-environment", "-environment="+env_id)
 
 	if err != nil {
 		t.Fatalf(message)
@@ -167,7 +199,7 @@ func Test_Environment(t *testing.T) {
 
 	t.Log("Update environment")
 
-	_, output, _ = run_test("update-environment", "-environment="+env_id, "-account-id="+account_id, "-name="+name+"-2", "-cost-estimation-enabled=false")
+	_, output, _ = run_test(t, "update-environment", "-environment="+env_id, "-account-id="+account_id, "-name="+name+"-2", "-cost-estimation-enabled=false")
 
 	if output.Search("cost-estimation-enabled").Data() == true {
 		t.Fatalf("Failed to update environment")
@@ -181,7 +213,7 @@ func Test_Environment(t *testing.T) {
 
 	t.Log("Delete environment")
 
-	message, _, err = run_test("delete-environment", "-environment="+env_id)
+	message, _, err = run_test(t, "delete-environment", "-environment="+env_id)
 
 	if err != nil {
 		t.Fatalf(message)
@@ -189,7 +221,7 @@ func Test_Environment(t *testing.T) {
 
 	t.Log("Confirm environment deletion")
 
-	_, _, err = run_test("get-environment", "-environment="+env_id)
+	_, _, err = run_test(t, "get-environment", "-environment="+env_id)
 
 	if err == nil {
 		t.Fatalf("Environment still exists")
@@ -205,7 +237,7 @@ func Test_Workspace(t *testing.T) {
 
 	t.Log("Create environment")
 
-	_, output, err := run_test("create-environment", "-account-id="+account_id, "-name="+environment_name)
+	_, output, err := run_test(t, "create-environment", "-account-id="+account_id, "-name="+environment_name)
 
 	if err != nil {
 		t.Fatalf(output.String())
@@ -219,7 +251,7 @@ func Test_Workspace(t *testing.T) {
 
 	t.Log("Create workspace")
 
-	_, output, err = run_test("create-workspace", "-environment-id="+env_id, "-name="+workspace_name)
+	_, output, err = run_test(t, "create-workspace", "-environment-id="+env_id, "-name="+workspace_name)
 
 	if err != nil {
 		t.Fatalf(output.String())
@@ -233,7 +265,7 @@ func Test_Workspace(t *testing.T) {
 
 	t.Log("Get workspace")
 
-	message, output, err := run_test("get-workspace", "-workspace="+workspace_id)
+	message, output, err := run_test(t, "get-workspace", "-workspace="+workspace_id)
 
 	if err != nil {
 		t.Fatalf(message)
@@ -245,7 +277,7 @@ func Test_Workspace(t *testing.T) {
 
 	t.Log("Update workspace")
 
-	_, output, err = run_test("update-workspace", "-workspace="+workspace_id, "-name="+workspace_name+"-2")
+	_, output, err = run_test(t, "update-workspace", "-workspace="+workspace_id, "-name="+workspace_name+"-2")
 
 	if err != nil {
 		t.Fatalf(output.String())
@@ -253,7 +285,7 @@ func Test_Workspace(t *testing.T) {
 
 	t.Log("Lock workspace")
 
-	_, output, err = run_test("lock-workspace", "-workspace="+workspace_id)
+	_, output, err = run_test(t, "lock-workspace", "-workspace="+workspace_id)
 
 	if err != nil {
 		t.Fatalf(output.String())
@@ -261,7 +293,7 @@ func Test_Workspace(t *testing.T) {
 
 	t.Log("Unlock workspace")
 
-	_, output, err = run_test("unlock-workspace", "-workspace="+workspace_id)
+	_, output, err = run_test(t, "unlock-workspace", "-workspace="+workspace_id)
 
 	if err != nil {
 		t.Fatalf(output.String())
@@ -273,7 +305,7 @@ func Test_Workspace(t *testing.T) {
 
 	t.Log("Delete workspace")
 
-	message, _, err = run_test("delete-workspace", "-workspace="+workspace_id)
+	message, _, err = run_test(t, "delete-workspace", "-workspace="+workspace_id)
 
 	if err != nil {
 		t.Fatalf(message)
@@ -281,7 +313,7 @@ func Test_Workspace(t *testing.T) {
 
 	t.Log("Confirm workspace deletion")
 
-	_, _, err = run_test("get-workspace", "-workspace="+workspace_id)
+	_, _, err = run_test(t, "get-workspace", "-workspace="+workspace_id)
 
 	if err == nil {
 		t.Fatalf("workspace still exists")
@@ -289,7 +321,7 @@ func Test_Workspace(t *testing.T) {
 
 	t.Log("Delete environment")
 
-	message, _, err = run_test("delete-environment", "-environment="+env_id)
+	message, _, err = run_test(t, "delete-environment", "-environment="+env_id)
 
 	if err != nil {
 		t.Fatalf(message)
