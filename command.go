@@ -234,7 +234,8 @@ func parseCommand(format string, verbose bool) {
 
 				//If stdin contains data, use that as Body
 				stat, _ := os.Stdin.Stat()
-				if (stat.Mode() & os.ModeCharDevice) == 0 {
+				if stat.Mode()&os.ModeNamedPipe != 0 ||
+					(stat.Mode()&os.ModeCharDevice == 0) && stat.Size() > 0 {
 
 					if len(missing) > 0 {
 						fmt.Printf("Missing required flag(s): %s\n", missing)
