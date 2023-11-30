@@ -153,7 +153,6 @@ func Test_Environment(t *testing.T) {
 
 	//t.Parallel()
 
-	account_id, _ := os.LookupEnv("SCALR_ACCOUNT")
 	name := "automated-test"
 
 	t.Log("List all environments")
@@ -173,7 +172,7 @@ func Test_Environment(t *testing.T) {
 
 	t.Log("Create environment")
 
-	_, output, err = run_test(t, "create-environment", "-account-id="+account_id, "-name="+name)
+	_, output, err = run_test(t, "create-environment", "-name="+name)
 
 	if err != nil {
 		t.Fatalf(output.String())
@@ -199,7 +198,7 @@ func Test_Environment(t *testing.T) {
 
 	t.Log("Update environment")
 
-	_, output, _ = run_test(t, "update-environment", "-environment="+env_id, "-account-id="+account_id, "-name="+name+"-2", "-cost-estimation-enabled=false")
+	_, output, _ = run_test(t, "update-environment", "-environment="+env_id, "-name="+name+"-2", "-cost-estimation-enabled=false")
 
 	if output.Search("cost-estimation-enabled").Data() == true {
 		t.Fatalf("Failed to update environment")
