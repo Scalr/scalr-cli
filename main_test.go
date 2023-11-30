@@ -230,13 +230,12 @@ func Test_Environment(t *testing.T) {
 
 func Test_Workspace(t *testing.T) {
 
-	account_id, _ := os.LookupEnv("SCALR_ACCOUNT")
 	environment_name := "automated-test"
 	workspace_name := "automated-test"
 
 	t.Log("Create environment")
 
-	_, output, err := run_test(t, "create-environment", "-account-id="+account_id, "-name="+environment_name)
+	_, output, err := run_test(t, "create-environment", "-name="+environment_name)
 
 	if err != nil {
 		t.Fatalf(output.String())
