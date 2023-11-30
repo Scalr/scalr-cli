@@ -43,10 +43,12 @@ func Test_Check(t *testing.T) {
 		t.Fatalf("Required environment variable SCALR_TOKEN is not set")
 	}
 
-	_, ok = os.LookupEnv("SCALR_HOSTNAME")
+	hostname, ok = os.LookupEnv("SCALR_HOSTNAME")
 	if !ok {
 		t.Fatalf("Required environment variable SCALR_HOSTNAME is not set")
 	}
+
+	t.Log("Will run tests against host: " + hostname)
 
 	_, ok = os.LookupEnv("SCALR_ACCOUNT")
 	if !ok {
