@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -460,7 +460,7 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 		res, err := http.DefaultClient.Do(req)
 		checkErr(err)
 
-		resBody, err := ioutil.ReadAll(res.Body)
+		resBody, err := io.ReadAll(res.Body)
 		checkErr(err)
 
 		if verbose {
@@ -477,15 +477,15 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 			return
 		}
 
+		//If not a JSON:API response, just rend it raw
+		if res.Header.Get("content-type") != "application/vnd.api+json" {
+			fmt.Println(string(resBody))
+			return
+		}
+
 		//Check if paging is needed
 		response, err := gabs.ParseJSON(resBody)
 		checkErr(err)
-
-		//If not a JSON:API response, just rend it raw
-		if res.Header.Get("content-type") != "application/vnd.api+json" {
-			output = response
-			break
-		}
 
 		//If data is empty, just send empty array
 		if len(response.Search("data").Children()) == 0 && len(response.Search("data").ChildrenMap()) == 0 {
