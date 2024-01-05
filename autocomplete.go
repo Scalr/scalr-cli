@@ -65,7 +65,7 @@ func listComplete(items []string, prefix string) {
 
 }
 
-//List basic flags
+// List basic flags
 func autoBasic(flags []string) {
 
 	if flags[0] != "" && flags[0][:1] == "-" && len(flags) == 1 {
@@ -73,7 +73,7 @@ func autoBasic(flags []string) {
 	}
 }
 
-//List all available commands
+// List all available commands
 func autoCommands(allFlags map[string]map[string][]string, flags []string, prefix string) {
 	if len(flags) <= 1 || (len(flags) == 2 && flags[0][:1] == "-") {
 
@@ -87,7 +87,7 @@ func autoCommands(allFlags map[string]map[string][]string, flags []string, prefi
 	}
 }
 
-//List flags for specific command
+// List flags for specific command
 func autoFlags(allFlags map[string]map[string][]string, flags []string, command string, prefix string) {
 
 	var params []string
@@ -100,7 +100,7 @@ func autoFlags(allFlags map[string]map[string][]string, flags []string, command 
 
 }
 
-//List flag-options for specific flag
+// List flag-options for specific flag
 func autoOptions(allFlags map[string]map[string][]string, command string, prefix string) {
 	if strings.Contains(prefix, "=") {
 
@@ -126,14 +126,14 @@ func autoOptions(allFlags map[string]map[string][]string, command string, prefix
 	}
 }
 
-//Load all available flags and options from OpenAPI
+// Load all available flags and options from OpenAPI
 func collectFlagsAndOptions() map[string]map[string][]string {
 
 	allFlags := make(map[string]map[string][]string)
 
 	doc := loadAPI()
 
-	for _, path := range doc.Paths {
+	for _, path := range doc.Paths.Map() {
 		for _, object := range path.Operations() {
 
 			command := strings.ReplaceAll(object.OperationID, "_", "-")
@@ -321,7 +321,7 @@ func enableAutocomplete() {
 
 }
 
-//Install auto-complete for bash
+// Install auto-complete for bash
 func autoCompleteBash(home string, fname string) string {
 
 	theConfig := home + "/" + ".bashrc"
@@ -351,7 +351,7 @@ func autoCompleteBash(home string, fname string) string {
 	return theConfig
 }
 
-//Install auto-complete for zsh
+// Install auto-complete for zsh
 func autoCompleteZsh(home string, fname string) string {
 
 	theConfig := home + "/" + ".zshrc"

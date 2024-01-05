@@ -53,7 +53,7 @@ func printHelp() {
 
 	groups := make(map[string]map[string]string)
 
-	for _, path := range doc.Paths {
+	for _, path := range doc.Paths.Map() {
 		for _, method := range path.Operations() {
 
 			group := ""
@@ -114,7 +114,7 @@ func printHelpCommand(command string) {
 	//Load OpenAPI specification
 	doc := loadAPI()
 
-	for _, path := range doc.Paths {
+	for _, path := range doc.Paths.Map() {
 		for method, object := range path.Operations() {
 
 			if command != strings.ReplaceAll(object.OperationID, "_", "-") {
