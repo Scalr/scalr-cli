@@ -39,7 +39,7 @@ func parseCommand(format string, verbose bool) {
 
 	command := flag.Arg(0)
 
-	for uri, path := range doc.Paths {
+	for uri, path := range doc.Paths.Map() {
 		for method, action := range path.Operations() {
 			if strings.ReplaceAll(action.OperationID, "_", "-") != command {
 				continue
