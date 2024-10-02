@@ -251,9 +251,9 @@ func parseCommand(format string, verbose bool) {
 					checkErr(err)
 
 					body = string(stdin)
+				}
 
-				} else {
-
+				if len(body) == 0 {
 					// FIXME: Disable required attributes for PATCH requests as the specs are incorrect
 					if method != "PATCH" {
 						if len(missingBody) > 0 || len(missing) > 0 {
