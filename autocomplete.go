@@ -16,6 +16,7 @@ import (
 func runAutocomplete() {
 
 	filename, _ := os.Executable()
+
 	filename = filepath.Base(filename)
 
 	trimmed := strings.TrimLeft(os.Getenv("COMP_LINE"), filename)
@@ -250,9 +251,13 @@ func collectFlagsAndOptions() map[string]map[string][]string {
 
 					//Collect valid flag values
 					if attribute.Value.Enum != nil {
-
 						for _, enum := range attribute.Value.Enum {
-							allFlags[command][flagName] = append(allFlags[command][flagName], enum.(string)+" ")
+							switch v := enum.(type) {
+							case string:
+								allFlags[command][flagName] = append(allFlags[command][flagName], v+" ")
+							case float64:
+								allFlags[command][flagName] = append(allFlags[command][flagName], fmt.Sprintf("%f ", v))
+							}
 						}
 
 					}
@@ -302,6 +307,8 @@ func enableAutocomplete() {
 	shell := filepath.Base(os.Getenv("SHELL"))
 	checkErr(err)
 
+	fmt.Println("Detected shell: " + shell)
+
 	theConfig := ""
 
 	switch shell {
@@ -311,6 +318,9 @@ func enableAutocomplete() {
 	case "zsh":
 		//Install auto-complete for zsh
 		theConfig = autoCompleteZsh(home, fname)
+	case "bash.exe":
+		//Install auto-complete for gitbash
+		theConfig = autoCompleteGitbash(home, fname)
 	default:
 		fmt.Println("Could not find any shell that supports the auto-complete feature.")
 		os.Exit(1)
@@ -319,6 +329,57 @@ func enableAutocomplete() {
 	fmt.Println("Auto-complete has been enabled in " + theConfig + "! Please restart your shell to enable it.")
 	os.Exit(0)
 
+}
+
+func convertPath(windowsPath string) string {
+	// Replace backslashes with forward slashes
+	unixPath := strings.ReplaceAll(windowsPath, "\\", "/")
+	// Add leading slash and convert drive letter to lowercase
+	if len(unixPath) > 1 && unixPath[1] == ':' {
+		unixPath = "/" + strings.ToLower(string(unixPath[0])) + unixPath[2:]
+	}
+	return unixPath
+}
+
+// Install auto-complete for gitbash
+func autoCompleteGitbash(home string, fname string) string {
+
+	theConfig := home + "\\" + ".bashrc"
+
+	// Check if a .bashrc file already exist
+	_, err := os.Stat(theConfig)
+	if err != nil {
+		// Create a new .bashrc file based on the global .bashrc file
+		input, err := os.ReadFile(os.Getenv("EXEPATH") + "\\etc\\bash.bashrc")
+		checkErr(err)
+
+		err = os.WriteFile(theConfig, input, 0666)
+		checkErr(err)
+	}
+
+	f, err := os.OpenFile(theConfig, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0666)
+	checkErr(err)
+	defer f.Close()
+
+	findLine := regexp.MustCompile("^complete (.*) scalr$")
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+
+		if findLine.MatchString(scanner.Text()) {
+			fmt.Println("Looks like auto-complete is already installed in " + theConfig + ". Please restart your shell to enable it.")
+			os.Exit(0)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+	_, err = f.WriteString("complete -o nospace -C " + convertPath(fname) + " scalr.exe\n")
+	checkErr(err)
+
+	return theConfig
 }
 
 // Install auto-complete for bash
