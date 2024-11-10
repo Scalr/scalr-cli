@@ -378,6 +378,8 @@ func autoCompleteGitbash(home string, fname string) string {
 
 	_, err = f.WriteString("complete -o nospace -C " + convertPath(fname) + " scalr.exe\n")
 	checkErr(err)
+	_, err = f.WriteString("complete -o nospace -C " + convertPath(fname) + " scalr\n")
+	checkErr(err)
 
 	return theConfig
 }
