@@ -113,6 +113,8 @@ func main() {
 		return
 	}
 
+	collectFlagsAndOptions()
+
 	//This is tab compretion request
 	if os.Getenv("COMP_LINE") != "" {
 		runAutocomplete()
