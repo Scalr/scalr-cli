@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/md5"
 	"errors"
 	"flag"
 	"fmt"
@@ -103,7 +102,7 @@ func main() {
 	//Load config from credentials.tfrc.json
 	ScalrHostname, ScalrToken = loadConfigTerraform(ScalrHostname, ScalrToken)
 
-	if ScalrHostname == "" || ScalrToken == "" {
+	if (ScalrHostname == "" || ScalrToken == "") && !*help && flag.Arg(0) != "assume-service-account" {
 		//End here if this is a completion request
 		if os.Getenv("COMP_LINE") != "" {
 			return
@@ -125,7 +124,6 @@ func main() {
 	}
 
 	parseCommand(*format, *verbose)
-
 }
 
 // Check for error and panic
@@ -200,6 +198,27 @@ func loadConfigTerraform(hostname string, token string) (string, string) {
 	return hostname, token
 }
 
+// Adds token to credentials.tfrc.json
+func addTerraformToken(hostname string, token string) {
+	home, err := os.UserHomeDir()
+	checkErr(err)
+
+	filePath := home + "/.terraform.d/credentials.tfrc.json"
+
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return
+	}
+
+	jsonParsed, err := gabs.ParseJSON(content)
+	checkErr(err)
+
+	jsonParsed.Set(token, "credentials", hostname, "token")
+
+	err = os.WriteFile(filePath, []byte(jsonParsed.StringIndent("", "  ")), 0)
+	checkErr(err)
+}
+
 // Loads OpenAPI specification
 func loadAPI() *openapi3.T {
 	cacheDir, err := os.UserCacheDir()
@@ -211,16 +230,16 @@ func loadAPI() *openapi3.T {
 		os.MkdirAll(cacheDir, 0700)
 	}
 
-	spec := cacheDir + "cache-" + fmt.Sprintf("%x", md5.Sum([]byte(ScalrHostname))) + "-openapi-preview.yml"
+	spec := cacheDir + "cache-openapi-preview.yml"
 
 	if info, err := os.Stat(spec); !os.IsNotExist(err) {
 		if time.Since(info.ModTime()).Hours() > 24 {
 			//Cache is more than 24 hours old, re-Download...
-			downloadFile("https://"+ScalrHostname+"/api/iacp/v3/openapi-preview.yml", spec)
+			downloadFile("https://scalr.io/api/iacp/v3/openapi-preview.yml", spec)
 		}
 	} else {
 		//Download spec
-		downloadFile("https://"+ScalrHostname+"/api/iacp/v3/openapi-preview.yml", spec)
+		downloadFile("https://scalr.io/api/iacp/v3/openapi-preview.yml", spec)
 	}
 
 	loader := openapi3.NewLoader()

@@ -395,6 +395,15 @@ func parseCommand(format string, verbose bool) {
 				}
 			}
 
+			// Special case for assume-service-account.
+			if command == "assume-service-account" {
+				// Extract hostname from parameter
+				email := flags["service-account-email"].value
+
+				// Extract hostname from email
+				ScalrHostname = strings.Split(*email, "@")[1]
+			}
+
 			//Make request to the API
 			callAPI(method, uri, query, body, contentType, verbose, format)
 
@@ -450,7 +459,11 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 		checkErr(err)
 
 		req.Header.Set("User-Agent", "scalr-cli/"+versionCLI)
-		req.Header.Add("Authorization", "Bearer "+ScalrToken)
+
+		if ScalrToken != "" {
+			req.Header.Add("Authorization", "Bearer "+ScalrToken)
+		}
+
 		req.Header.Add("Prefer", "profile=preview")
 
 		if contentType != "" {
@@ -515,6 +528,14 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 	//TODO: Add different outputs, such as YAML, CSV and TABLE
 	//formatJSON(resBody)
 	fmt.Println(output.StringIndent("", "  "))
+
+	if uri == "/service-accounts/assume" {
+		// Extract token from response
+		token := output.Path("access-token").Data().(string)
+
+		// Save token to credentials.tfrc.json
+		addTerraformToken(ScalrHostname, token)
+	}
 
 }
 
