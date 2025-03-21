@@ -493,6 +493,19 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 		//If not a JSON:API response, just rend it raw
 		if res.Header.Get("content-type") != "application/vnd.api+json" {
 			fmt.Println(string(resBody))
+
+			fmt.Println("URI", uri)
+
+			if uri == "/service-accounts/assume" {
+				// Extract token from response
+				token := output.Path("access-token").Data().(string)
+
+				fmt.Println("Token", token)
+
+				// Save token to credentials.tfrc.json
+				addTerraformToken(ScalrHostname, token)
+			}
+
 			return
 		}
 
@@ -527,20 +540,7 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 
 	//TODO: Add different outputs, such as YAML, CSV and TABLE
 	//formatJSON(resBody)
-	fmt.Println("Hello World!!")
-
 	fmt.Println(output.StringIndent("", "  "))
-
-	fmt.Println("URI", uri)
-
-	if uri == "/service-accounts/assume" {
-		// Extract token from response
-		token := output.Path("access-token").Data().(string)
-
-		// Save token to credentials.tfrc.json
-		addTerraformToken(ScalrHostname, token)
-	}
-
 }
 
 // Parse error response and show it to user
