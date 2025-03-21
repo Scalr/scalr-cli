@@ -498,9 +498,12 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 
 			fmt.Println("URI", uri)
 
-			if uri == "/service-accounts/assume" {
+			if uri == "/service-accounts/assume" && res.Header.Get("content-type") == "application/json" {
+				response, err := gabs.ParseJSON(resBody)
+				checkErr(err)
+
 				// Extract token from response
-				token := output.Path("access-token").Data().(string)
+				token := response.Path("access-token").Data().(string)
 
 				fmt.Println("Token", token)
 
