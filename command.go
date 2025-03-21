@@ -527,6 +527,8 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 
 	//TODO: Add different outputs, such as YAML, CSV and TABLE
 	//formatJSON(resBody)
+	fmt.Println("Hello World!!")
+
 	fmt.Println(output.StringIndent("", "  "))
 
 	fmt.Println("URI", uri)
