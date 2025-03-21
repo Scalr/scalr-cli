@@ -529,7 +529,7 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 	//formatJSON(resBody)
 	fmt.Println(output.StringIndent("", "  "))
 
-	fmt.Println(uri)
+	fmt.Println("URI", uri)
 
 	if uri == "/service-accounts/assume" {
 		// Extract token from response
