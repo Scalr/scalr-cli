@@ -494,6 +494,8 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 		if res.Header.Get("content-type") != "application/vnd.api+json" {
 			fmt.Println(string(resBody))
 
+			fmt.Println("Content-Type", res.Header.Get("content-type"))
+
 			fmt.Println("URI", uri)
 
 			if uri == "/service-accounts/assume" {
