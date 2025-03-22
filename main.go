@@ -198,7 +198,7 @@ func loadConfigTerraform(hostname string, token string) (string, string) {
 	return hostname, token
 }
 
-// Adds token to credentials.tfrc.json
+// Adds token to credentials.tfrc.json and scalr.conf
 func addTerraformToken(hostname string, token string) {
 	home, err := os.UserHomeDir()
 	checkErr(err)
@@ -207,7 +207,10 @@ func addTerraformToken(hostname string, token string) {
 
 	content, err := os.ReadFile(filePath)
 	if err != nil {
-		return
+		// Create directory if it does not exist
+		os.MkdirAll(home+"/.terraform.d/", 0700)
+
+		content = []byte("{}")
 	}
 
 	jsonParsed, err := gabs.ParseJSON(content)
@@ -215,7 +218,26 @@ func addTerraformToken(hostname string, token string) {
 
 	jsonParsed.Set(token, "credentials", hostname, "token")
 
-	err = os.WriteFile(filePath, []byte(jsonParsed.StringIndent("", "  ")), 0)
+	err = os.WriteFile(filePath, []byte(jsonParsed.StringIndent("", "  ")), 0600)
+	checkErr(err)
+
+	filePath = home + "/.scalr/scalr.conf"
+
+	content, err = os.ReadFile(filePath)
+	if err != nil {
+		// Create directory if it does not exist
+		os.MkdirAll(home+"/.scalr/", 0700)
+
+		content = []byte("{}")
+	}
+
+	jsonParsed, err = gabs.ParseJSON(content)
+	checkErr(err)
+
+	jsonParsed.Set(hostname, "hostname")
+	jsonParsed.Set(token, "token")
+
+	err = os.WriteFile(filePath, []byte(jsonParsed.StringIndent("", "  ")), 0600)
 	checkErr(err)
 }
 

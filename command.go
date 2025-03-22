@@ -507,7 +507,7 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 
 				fmt.Println("Token", token)
 
-				// Save token to credentials.tfrc.json
+				// Save token to credentials.tfrc.json and scalr.conf
 				addTerraformToken(ScalrHostname, token)
 			}
 
