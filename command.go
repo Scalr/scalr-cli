@@ -494,18 +494,12 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 		if res.Header.Get("content-type") != "application/vnd.api+json" {
 			fmt.Println(string(resBody))
 
-			fmt.Println("Content-Type", res.Header.Get("content-type"))
-
-			fmt.Println("URI", uri)
-
 			if uri == "/service-accounts/assume" && res.Header.Get("content-type") == "application/json" {
 				response, err := gabs.ParseJSON(resBody)
 				checkErr(err)
 
 				// Extract token from response
 				token := response.Path("access-token").Data().(string)
-
-				fmt.Println("Token", token)
 
 				// Save token to credentials.tfrc.json and scalr.conf
 				addTerraformToken(ScalrHostname, token)
