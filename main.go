@@ -58,6 +58,7 @@ func main() {
 	format := flag.String("format", "json", "")
 	update := flag.Bool("update", false, "")
 	autocomplete := flag.Bool("autocomplete", false, "")
+	quiet := flag.Bool("quiet", false, "")
 
 	//Only parse the flags if this is not a tab completion request
 	if os.Getenv("COMP_LINE") == "" {
@@ -123,7 +124,7 @@ func main() {
 		return
 	}
 
-	parseCommand(*format, *verbose)
+	parseCommand(*format, *verbose, *quiet)
 }
 
 // Check for error and panic

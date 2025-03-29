@@ -34,6 +34,7 @@ func printInfo() {
 	fmt.Print("  -configure", "     ", "Run configuration wizard", "\n")
 	fmt.Print("  -update", "        ", "Updates this tool to the latest version by downloading and replacing current binary", "\n")
 	fmt.Print("  -autocomplete", "  ", "Enable shell tab auto-complete", "\n\n")
+	fmt.Print("  -quiet", "         ", "Disables printing server responses", "\n\n")
 
 	//fmt.Print("  -format=STRING", "  ", "Specify output format. Options: json (default), table", "\n")
 
