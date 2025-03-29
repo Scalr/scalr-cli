@@ -103,7 +103,11 @@ func main() {
 	//Load config from credentials.tfrc.json
 	ScalrHostname, ScalrToken = loadConfigTerraform(ScalrHostname, ScalrToken)
 
-	if (ScalrHostname == "" || ScalrToken == "") && !*help && flag.Arg(0) != "assume-service-account" {
+	if ScalrHostname == "" {
+		ScalrHostname = "scalr.io"
+	}
+
+	if ScalrToken == "" && !*help && flag.Arg(0) != "assume-service-account" {
 		//End here if this is a completion request
 		if os.Getenv("COMP_LINE") != "" {
 			return
@@ -258,11 +262,11 @@ func loadAPI() *openapi3.T {
 	if info, err := os.Stat(spec); !os.IsNotExist(err) {
 		if time.Since(info.ModTime()).Hours() > 24 {
 			//Cache is more than 24 hours old, re-Download...
-			downloadFile("https://scalr.io/api/iacp/v3/openapi-preview.yml", spec)
+			downloadFile("https://"+ScalrHostname+"/api/iacp/v3/openapi-preview.yml", spec)
 		}
 	} else {
 		//Download spec
-		downloadFile("https://scalr.io/api/iacp/v3/openapi-preview.yml", spec)
+		downloadFile("https://"+ScalrHostname+"/api/iacp/v3/openapi-preview.yml", spec)
 	}
 
 	loader := openapi3.NewLoader()
