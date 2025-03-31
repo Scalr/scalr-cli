@@ -136,7 +136,7 @@ func printHelpCommand(command string) {
 
 				//Collect valid flag values
 				var enum []any
-				if parameter.Value.Schema.Value.Type == "array" &&
+				if parameter.Value.Schema.Value.Type.Is("array") &&
 					parameter.Value.Schema.Value.Items != nil &&
 					parameter.Value.Schema.Value.Items.Value.Enum != nil {
 					enum = parameter.Value.Schema.Value.Items.Value.Enum
@@ -146,8 +146,18 @@ func printHelpCommand(command string) {
 					enum = parameter.Value.Schema.Value.Enum
 				}
 
+				// Convert type to string representation
+				varType := "string"
+				if parameter.Value.Schema.Value.Type.Is("boolean") {
+					varType = "boolean"
+				} else if parameter.Value.Schema.Value.Type.Is("integer") {
+					varType = "integer"
+				} else if parameter.Value.Schema.Value.Type.Is("array") {
+					varType = "array"
+				}
+
 				flags[renameFlag(parameter.Value.Name)] = Parameter{
-					varType:     parameter.Value.Schema.Value.Type,
+					varType:     varType,
 					description: renameFlag(parameter.Value.Description),
 					required:    parameter.Value.Required,
 					enum:        enum,
@@ -209,13 +219,13 @@ func printHelpCommand(command string) {
 							}
 
 							//Nested object, needs to drill down deeper
-							if attribute.Value.Type == "object" {
+							if attribute.Value.Type.Is("object") {
 								collectAttributes(attribute.Value, flagName+"-", "")
 								continue
 							}
 
 							//Arrays might include objects that needs to be drilled down deeper
-							if attribute.Value.Type == "array" && attribute.Value.Items.Value.Type == "object" {
+							if attribute.Value.Type.Is("array") && attribute.Value.Items.Value.Type.Is("object") {
 								collectAttributes(attribute.Value.Items.Value, flagName+"-", "array")
 								continue
 							}
@@ -254,28 +264,44 @@ func printHelpCommand(command string) {
 
 							theType := attribute.Value.Type
 							if inheritType != "" {
-								theType = inheritType
+								// Instead of trying to create a new type, we'll use the existing type
+								// and just handle the type conversion in the string representation
+								theType = attribute.Value.Type
 							}
 
 							enum := attribute.Value.Enum
 
 							//Special case: ProviderConfiguration and maybe others?
-							if theType == "" && attribute.Value.AnyOf != nil {
+							if theType == nil && attribute.Value.AnyOf != nil {
 								for _, item := range attribute.Value.AnyOf {
-
 									if item.Value.Enum != nil {
 										enum = item.Value.Enum
 									}
 
-									if item.Value.Type != "" {
+									if item.Value.Type != nil {
 										theType = item.Value.Type
 									}
-
 								}
 							}
 
+							// Convert type to string representation
+							varType := "string"
+							if theType != nil {
+								if theType.Is("boolean") {
+									varType = "boolean"
+								} else if theType.Is("integer") {
+									varType = "integer"
+								} else if theType.Is("array") {
+									varType = "array"
+								} else if theType.Is("object") {
+									varType = "object"
+								}
+							} else if inheritType != "" {
+								varType = inheritType
+							}
+
 							flags[flagName] = Parameter{
-								varType:     theType,
+								varType:     varType,
 								description: description,
 								required:    required,
 								enum:        enum,

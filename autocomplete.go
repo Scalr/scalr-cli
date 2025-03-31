@@ -155,7 +155,7 @@ func collectFlagsAndOptions() map[string]map[string][]string {
 
 				//Collect valid flag values
 				var enums []any
-				if parameter.Value.Schema.Value.Type == "array" &&
+				if parameter.Value.Schema.Value.Type.Is("array") &&
 					parameter.Value.Schema.Value.Items != nil &&
 					parameter.Value.Schema.Value.Items.Value.Enum != nil {
 					enums = parameter.Value.Schema.Value.Items.Value.Enum
@@ -209,13 +209,13 @@ func collectFlagsAndOptions() map[string]map[string][]string {
 					}
 
 					//Nested object, needs to drill down deeper
-					if attribute.Value.Type == "object" {
+					if attribute.Value.Type.Is("object") {
 						collectAttributes(attribute.Value, flagName+"-", "")
 						continue
 					}
 
 					//Arrays might include objects that needs to be drilled down deeper
-					if attribute.Value.Type == "array" && attribute.Value.Items.Value.Type == "object" {
+					if attribute.Value.Type.Is("array") && attribute.Value.Items.Value.Type.Is("object") {
 						collectAttributes(attribute.Value.Items.Value, flagName+"-", "array")
 						continue
 					}
