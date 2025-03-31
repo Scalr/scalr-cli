@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/md5"
 	"errors"
 	"flag"
 	"fmt"
@@ -59,6 +58,7 @@ func main() {
 	format := flag.String("format", "json", "")
 	update := flag.Bool("update", false, "")
 	autocomplete := flag.Bool("autocomplete", false, "")
+	quiet := flag.Bool("quiet", false, "")
 
 	//Only parse the flags if this is not a tab completion request
 	if os.Getenv("COMP_LINE") == "" {
@@ -103,7 +103,11 @@ func main() {
 	//Load config from credentials.tfrc.json
 	ScalrHostname, ScalrToken = loadConfigTerraform(ScalrHostname, ScalrToken)
 
-	if ScalrHostname == "" || ScalrToken == "" {
+	if ScalrHostname == "" {
+		ScalrHostname = "scalr.io"
+	}
+
+	if ScalrToken == "" && !*help && flag.Arg(0) != "assume-service-account" {
 		//End here if this is a completion request
 		if os.Getenv("COMP_LINE") != "" {
 			return
@@ -124,8 +128,7 @@ func main() {
 		return
 	}
 
-	parseCommand(*format, *verbose)
-
+	parseCommand(*format, *verbose, *quiet)
 }
 
 // Check for error and panic
@@ -200,6 +203,49 @@ func loadConfigTerraform(hostname string, token string) (string, string) {
 	return hostname, token
 }
 
+// Adds token to credentials.tfrc.json and scalr.conf
+func addTerraformToken(hostname string, token string) {
+	home, err := os.UserHomeDir()
+	checkErr(err)
+
+	filePath := home + "/.terraform.d/credentials.tfrc.json"
+
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		// Create directory if it does not exist
+		os.MkdirAll(home+"/.terraform.d/", 0700)
+
+		content = []byte("{}")
+	}
+
+	jsonParsed, err := gabs.ParseJSON(content)
+	checkErr(err)
+
+	jsonParsed.Set(token, "credentials", hostname, "token")
+
+	err = os.WriteFile(filePath, []byte(jsonParsed.StringIndent("", "  ")), 0600)
+	checkErr(err)
+
+	filePath = home + "/.scalr/scalr.conf"
+
+	content, err = os.ReadFile(filePath)
+	if err != nil {
+		// Create directory if it does not exist
+		os.MkdirAll(home+"/.scalr/", 0700)
+
+		content = []byte("{}")
+	}
+
+	jsonParsed, err = gabs.ParseJSON(content)
+	checkErr(err)
+
+	jsonParsed.Set(hostname, "hostname")
+	jsonParsed.Set(token, "token")
+
+	err = os.WriteFile(filePath, []byte(jsonParsed.StringIndent("", "  ")), 0600)
+	checkErr(err)
+}
+
 // Loads OpenAPI specification
 func loadAPI() *openapi3.T {
 	cacheDir, err := os.UserCacheDir()
@@ -211,7 +257,7 @@ func loadAPI() *openapi3.T {
 		os.MkdirAll(cacheDir, 0700)
 	}
 
-	spec := cacheDir + "cache-" + fmt.Sprintf("%x", md5.Sum([]byte(ScalrHostname))) + "-openapi-preview.yml"
+	spec := cacheDir + "cache-openapi-preview.yml"
 
 	if info, err := os.Stat(spec); !os.IsNotExist(err) {
 		if time.Since(info.ModTime()).Hours() > 24 {

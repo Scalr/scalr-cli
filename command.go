@@ -33,7 +33,7 @@ func renameFlag(name string) string {
 	return name
 }
 
-func parseCommand(format string, verbose bool) {
+func parseCommand(format string, verbose bool, quiet bool) {
 
 	doc := loadAPI()
 
@@ -395,8 +395,17 @@ func parseCommand(format string, verbose bool) {
 				}
 			}
 
+			// Special case for assume-service-account.
+			if command == "assume-service-account" {
+				// Extract hostname from parameter
+				email := flags["service-account-email"].value
+
+				// Extract hostname from email
+				ScalrHostname = strings.Split(*email, "@")[1]
+			}
+
 			//Make request to the API
-			callAPI(method, uri, query, body, contentType, verbose, format)
+			callAPI(method, uri, query, body, contentType, verbose, format, quiet)
 
 			return
 		}
@@ -425,7 +434,7 @@ func shortenName(flagName string) string {
 }
 
 // Make a request to the Scalr API
-func callAPI(method string, uri string, query url.Values, body string, contentType string, verbose bool, format string) {
+func callAPI(method string, uri string, query url.Values, body string, contentType string, verbose bool, format string, quiet bool) {
 
 	output := gabs.New()
 	output.Array()
@@ -450,7 +459,11 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 		checkErr(err)
 
 		req.Header.Set("User-Agent", "scalr-cli/"+versionCLI)
-		req.Header.Add("Authorization", "Bearer "+ScalrToken)
+
+		if ScalrToken != "" {
+			req.Header.Add("Authorization", "Bearer "+ScalrToken)
+		}
+
 		req.Header.Add("Prefer", "profile=preview")
 
 		if contentType != "" {
@@ -479,7 +492,21 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 
 		//If not a JSON:API response, just rend it raw
 		if res.Header.Get("content-type") != "application/vnd.api+json" {
-			fmt.Println(string(resBody))
+			if !quiet {
+				fmt.Println(string(resBody))
+			}
+
+			if uri == "/service-accounts/assume" && res.Header.Get("content-type") == "application/json" {
+				response, err := gabs.ParseJSON(resBody)
+				checkErr(err)
+
+				// Extract token from response
+				token := response.Path("access-token").Data().(string)
+
+				// Save token to credentials.tfrc.json and scalr.conf
+				addTerraformToken(ScalrHostname, token)
+			}
+
 			return
 		}
 
@@ -514,8 +541,9 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 
 	//TODO: Add different outputs, such as YAML, CSV and TABLE
 	//formatJSON(resBody)
-	fmt.Println(output.StringIndent("", "  "))
-
+	if !quiet {
+		fmt.Println(output.StringIndent("", "  "))
+	}
 }
 
 // Parse error response and show it to user
