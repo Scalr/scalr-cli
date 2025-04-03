@@ -69,10 +69,10 @@ func parseCommand(format string, verbose bool, quiet bool) {
 					continue
 				}
 
-				if parameter.Value.Schema.Value.Type == "string" ||
-					parameter.Value.Schema.Value.Type == "boolean" ||
-					parameter.Value.Schema.Value.Type == "integer" ||
-					parameter.Value.Schema.Value.Type == "array" {
+				if parameter.Value.Schema.Value.Type.Is("string") ||
+					parameter.Value.Schema.Value.Type.Is("boolean") ||
+					parameter.Value.Schema.Value.Type.Is("integer") ||
+					parameter.Value.Schema.Value.Type.Is("array") {
 
 					flags[renameFlag(parameter.Value.Name)] = Parameter{
 						location: parameter.Value.In,
@@ -128,13 +128,13 @@ func parseCommand(format string, verbose bool, quiet bool) {
 								}
 
 								//Nested object, needs to drill down deeper
-								if attribute.Value.Type == "object" {
+								if attribute.Value.Type.Is("object") {
 									collectAttributes(attribute.Value, flagName+"-", "")
 									continue
 								}
 
 								//Arrays might include objects that needs to be drilled down deeper
-								if attribute.Value.Type == "array" && attribute.Value.Items.Value.Type == "object" {
+								if attribute.Value.Type.Is("array") && attribute.Value.Items.Value.Type.Is("object") {
 									collectAttributes(attribute.Value.Items.Value, flagName+"-", "array")
 									continue
 								}
@@ -286,15 +286,15 @@ func parseCommand(format string, verbose bool, quiet bool) {
 								path := prefix + name
 
 								//Nested object, needs to drill down deeper
-								if attribute.Value.Type == "object" {
+								if attribute.Value.Type.Is("object") {
 									collectAttributes(attribute.Value, path+".")
 									continue
 								}
 
 								//Special case for arrays of objects used in relationships
-								if attribute.Value.Type == "array" && attribute.Value.Items.Value.Type == "object" {
+								if attribute.Value.Type.Is("array") && attribute.Value.Items.Value.Type.Is("object") {
 									path = path + ".id"
-									attribute.Value.Type = "relationship"
+									continue
 								}
 
 								flagName := strings.ReplaceAll(path, ".", "-")
@@ -336,20 +336,19 @@ func parseCommand(format string, verbose bool, quiet bool) {
 
 								theType := attribute.Value.Type
 
-								//If no type is specified, look deeper
-								if theType == "" && attribute.Value.AnyOf != nil {
-									for _, item := range attribute.Value.AnyOf {
-
-										if item.Value.Type != "" {
-											theType = item.Value.Type
-											break
-										}
-
-									}
+								//If no type is specified, it's a relationship
+								if theType == nil {
+									theType = &openapi3.Types{}
 								}
 
-								switch theType {
-								case "relationship":
+								//If this is a relationship, strip prefix and -data- to shorten flag-names
+								if attribute.Value.Type != nil && attribute.Value.Type.Is("object") {
+									flagName = strings.TrimPrefix(flagName, "data-relationships-")
+									flagName = strings.Replace(flagName, "-data-id", "-id", 1)
+								}
+
+								switch {
+								case theType.Is("object"):
 									//Special case for arrays in relationships
 									for _, item := range strings.Split(value, ",") {
 										sub := gabs.New()
@@ -359,18 +358,18 @@ func parseCommand(format string, verbose bool, quiet bool) {
 										raw.ArrayAppendP(sub.Data(), strings.TrimSuffix(path, ".id"))
 									}
 
-								case "boolean":
+								case theType.Is("boolean"):
 									val, _ := strconv.ParseBool(value)
 									raw.SetP(val, path)
 
-								case "string":
+								case theType.Is("string"):
 									raw.SetP(value, path)
 
-								case "integer":
+								case theType.Is("integer"):
 									val, _ := strconv.Atoi(value)
 									raw.SetP(val, path)
 
-								case "array":
+								case theType.Is("array"):
 									raw.SetP(strings.Split(value, ","), path)
 
 								default:

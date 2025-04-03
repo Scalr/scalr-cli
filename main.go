@@ -360,7 +360,7 @@ func collectRequired(root *openapi3.Schema) map[string]bool {
 		//data should always be considered as required
 		if prefix == "" && nested.Properties["data"] != nil {
 
-			if nested.Properties["data"].Value.Type == "array" {
+			if nested.Properties["data"].Value.Type.Is("array") {
 				recursive(nested.Properties["data"].Value.Items.Value, prefix+"data-")
 			} else {
 				recursive(nested.Properties["data"].Value, prefix+"data-")
@@ -374,13 +374,13 @@ func collectRequired(root *openapi3.Schema) map[string]bool {
 			requiredFields[prefix+name] = true
 
 			//Nested object, needs to drill down deeper
-			if nested.Properties[name].Value.Type == "object" {
+			if nested.Properties[name].Value.Type.Is("object") {
 				recursive(nested.Properties[name].Value, prefix+name+"-")
 				continue
 			}
 
 			//Nested array of objects, needs to dril down deeper
-			if nested.Properties[name].Value.Type == "array" && nested.Properties[name].Value.Items.Value.Type == "object" {
+			if nested.Properties[name].Value.Type.Is("array") && nested.Properties[name].Value.Items.Value.Type.Is("object") {
 				recursive(nested.Properties[name].Value.Items.Value, prefix+name+"-")
 				continue
 			}
