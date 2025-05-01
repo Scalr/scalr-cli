@@ -16,6 +16,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Required for git operations
+
       - uses: actions/setup-go@v3
         with:
           go-version: '>=1.18.0'
@@ -25,6 +28,17 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${{ github.event.inputs.version }}"
-          sed -i "s/0.0.0/${VERSION}/" main.go
           bash build-all.sh $VERSION
           gh release create v$VERSION --generate-notes ./bin/*.zip ./bin/*_SHA256SUMS
+
+      - name: Update version
+        run: |
+          echo "${{ github.event.inputs.version }}" > VERSION
+
+      - name: Commit version update
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add VERSION
+          git commit -m "chore: update version to ${{ github.event.inputs.version }}"
+          git push

@@ -20,11 +20,10 @@ var (
 	ScalrToken    string
 	ScalrAccount  string
 	BasePath      string
+	versionCLI    = readVersion()
 )
 
 const (
-	versionCLI = "0.0.0"
-
 	colorReset = "\033[0m"
 
 	colorRed = "\033[31m"
@@ -392,4 +391,12 @@ func collectRequired(root *openapi3.Schema) map[string]bool {
 	recursive(root, "")
 
 	return requiredFields
+}
+
+func readVersion() string {
+	versionBytes, err := os.ReadFile("VERSION")
+	if err != nil {
+		return "0.0.0" // fallback version
+	}
+	return strings.TrimSpace(string(versionBytes))
 }
