@@ -6,7 +6,7 @@ toolchain go1.24.1
 
 require (
 	github.com/Jeffail/gabs/v2 v2.7.0
-	github.com/getkin/kin-openapi v0.131.0
+	github.com/getkin/kin-openapi v0.132.0
 	golang.org/x/term v0.30.0
 )
 
