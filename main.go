@@ -20,7 +20,10 @@ var (
 	ScalrToken    string
 	ScalrAccount  string
 	BasePath      string
-	versionCLI    = readVersion()
+	// Version information - set at build time
+	versionCLI = "dev"      // Default for development builds
+	gitCommit  = "unknown"  // Git commit hash
+	buildDate  = "unknown"  // Build timestamp
 )
 
 const (
@@ -391,12 +394,4 @@ func collectRequired(root *openapi3.Schema) map[string]bool {
 	recursive(root, "")
 
 	return requiredFields
-}
-
-func readVersion() string {
-	versionBytes, err := os.ReadFile("VERSION")
-	if err != nil {
-		return "0.0.0" // fallback version
-	}
-	return strings.TrimSpace(string(versionBytes))
 }

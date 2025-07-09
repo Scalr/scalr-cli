@@ -1,9 +1,9 @@
 package main
 
-import (
-	"fmt"
-)
+import "fmt"
 
 func runVersion() {
-	fmt.Println(versionCLI)
+	fmt.Printf("scalr-cli version %s\n", versionCLI)
+	fmt.Printf("Git commit: %s\n", gitCommit)
+	fmt.Printf("Build date: %s\n", buildDate)
 }
