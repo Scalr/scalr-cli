@@ -30,7 +30,6 @@ test:
 .PHONY: version
 version:
 	@echo "Version: $(VERSION)"
-	@echo "Git commit: $(GIT_COMMIT)"
 	@echo "Build date: $(BUILD_DATE)"
 
 .PHONY: help

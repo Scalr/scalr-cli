@@ -21,7 +21,6 @@ GIT_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 echo "Building version: $VERSION"
-echo "Git commit: $GIT_COMMIT"
 echo "Build date: $BUILD_DATE"
 
 declare -a os=("linux" "windows" "darwin")

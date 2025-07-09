@@ -6,7 +6,7 @@ class ScalrCli < Formula
   desc "CLI for Scalr remote state & operations backend"
   homepage "https://scalr.com"
   url "https://github.com/Scalr/scalr-cli/archive/refs/tags/v0.17.2.tar.gz"
-  sha256 "d5558cd419c8d46bdc958064cb97f963d1ea793866414c025906ec15033512ed"
+  sha256 "0bbc9661612a2a8822c2da8225a39567e240f2ddf8d99903456c234ed1b37477"
   license "Apache-2.0"
   head "https://github.com/Scalr/scalr-cli.git", branch: "main"
 
@@ -23,7 +23,7 @@ class ScalrCli < Formula
 
     # Build with dynamic version information
     system "go", "build",
-           "-ldflags", "-s -w -X main.versionCLI=#{version} -X main.gitCommit=#{git_commit} -X main.buildDate=#{build_date}",
+           "-ldflags", "-s -w -X main.versionCLI=#{version} -X main.buildDate=#{build_date}",
            "-o", bin/"scalr", "."
   end
 
