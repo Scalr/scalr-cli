@@ -22,7 +22,6 @@ var (
 	BasePath      string
 	// Version information - set at build time
 	versionCLI = "dev"      // Default for development builds
-	gitCommit  = "unknown"  // Git commit hash
 	buildDate  = "unknown"  // Build timestamp
 )
 

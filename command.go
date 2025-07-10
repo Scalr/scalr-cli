@@ -585,6 +585,16 @@ func parseData(response *gabs.Container) *gabs.Container {
 		sub.SetP(value.Search("id"), "id")
 		sub.SetP(value.Search("type"), "type")
 
+		// Include links section if it exists (important for create-configuration-version upload-url)
+		if value.Search("links") != nil {
+			sub.SetP(value.Search("links"), "links")
+		}
+
+		// Include meta section if it exists (may contain additional metadata)
+		if value.Search("meta") != nil {
+			sub.SetP(value.Search("meta"), "meta")
+		}
+
 		for name, relationship := range value.Search("relationships").ChildrenMap() {
 
 			if relationship.Data() == nil {

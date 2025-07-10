@@ -5,6 +5,20 @@
 
 ## Installation
 
+### Homebrew (macOS/Linux)
+
+The easiest way to install Scalr CLI is using Homebrew:
+
+```bash
+# Add the Scalr tap
+brew tap Scalr/scalr
+
+# Install scalr-cli
+brew install scalr
+```
+
+### Manual Installation
+
 Installing the Scalr cli tool is very straightforward as it's distributed as a single static binary. Simply download the zipped binary from the [releases](https://github.com/Scalr/scalr-cli/releases) section that corresponds to your architecture and (preferably) unpack it somewhere in your PATH.
 
 ## Basic usage
