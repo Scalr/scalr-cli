@@ -32,6 +32,7 @@ Usage: scalr [OPTION] COMMAND [FLAGS]
 Examples:
   $ scalr -help
   $ scalr -help get-workspaces
+  $ scalr get-workspaces -help
   $ scalr get-foo-bar -flag=value
   $ scalr -verbose create-foo-bar -flag=value -flag2=value2
   $ scalr create-foo-bar < json-blob.txt
@@ -39,7 +40,7 @@ Examples:
 Environment variables:
   SCALR_HOSTNAME  Scalr Hostname, i.e example.scalr.io
   SCALR_TOKEN     Scalr API Token
-  SCALR_ACCOUNT   Default Scalr Account ID, i.e acc-tq8cgt2hu6hpfuj  
+  SCALR_ACCOUNT   Default Scalr Account ID, i.e acc-tq8cgt2hu6hpfuj
 
 Options:
   -version       Shows current version of this binary
@@ -61,7 +62,7 @@ An optional environment variable called SCALR_ACCOUNT can be used to set a defau
 ```
 user@server ~$ scalr -configure
 Scalr Hostname [ex: example.scalr.io]: example.scalr.io
-Scalr Token (not echoed!): 
+Scalr Token (not echoed!):
 Default Scalr Account-ID [ex: acc-tq8cgt2hu6hpfuj]: acc-tq8cgt2hu6hpfuj
 Configuration saved in /home/user/.scalr/scalr.conf
 ```
@@ -123,7 +124,7 @@ user@server ~$ echo '
 >          },
 >          "type": "environments"
 >      }
-> } 
+> }
 > ' | scalr create-environment
 ```
 
@@ -140,10 +141,10 @@ Missing required flag(s): [workspace]
 ## Update CLI version:
 ```
 user@server ~$ scalr -update
-Latest version is 0.9.0, which is different from current installed version 0.8.0. 
+Latest version is 0.9.0, which is different from current installed version 0.8.0.
 Downloading version 0.9.0...
-Replacing current binary with downloaded version... 
-All done! Your binary is now at version 0.9.0 
+Replacing current binary with downloaded version...
+All done! Your binary is now at version 0.9.0
 ```
 
 ## Shell tab auto-complete
