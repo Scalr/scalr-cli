@@ -21,8 +21,8 @@ var (
 	ScalrAccount  string
 	BasePath      string
 	// Version information - set at build time
-	versionCLI = "dev"      // Default for development builds
-	buildDate  = "unknown"  // Build timestamp
+	versionCLI = "dev"     // Default for development builds
+	buildDate  = "unknown" // Build timestamp
 )
 
 const (
@@ -105,8 +105,10 @@ func main() {
 	//Load config from scalr.conf
 	ScalrHostname, ScalrToken, ScalrAccount = loadConfigScalr(ScalrHostname, ScalrToken, ScalrAccount)
 
-	//Load config from credentials.tfrc.json
-	ScalrHostname, ScalrToken = loadConfigTerraform(ScalrHostname, ScalrToken)
+	if ScalrToken == "" {
+		//Load config from credentials.tfrc.json
+		ScalrHostname, ScalrToken = loadConfigTerraform(ScalrHostname, ScalrToken)
+	}
 
 	if ScalrHostname == "" {
 		ScalrHostname = "scalr.io"
