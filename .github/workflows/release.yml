@@ -28,5 +28,5 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${{ github.event.inputs.version }}"
-          bash build-all.sh $VERSION
+          stdbuf -oL bash build-all.sh $VERSION
           gh release create v$VERSION --generate-notes ./bin/*.zip ./bin/*_SHA256SUMS
