@@ -22,6 +22,8 @@ BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 echo "Building version: $VERSION"
 echo "Build date: $BUILD_DATE"
+echo "Git commit: $GIT_COMMIT"
+echo "LDFLAGS will set: versionCLI=$VERSION buildDate=$BUILD_DATE gitCommit=$GIT_COMMIT"
 
 declare -a os=("linux" "windows" "darwin")
 declare -a arch=("386" "amd64" "arm" "arm64")
@@ -47,11 +49,13 @@ do
 
     BINARY="scalr-cli_${VERSION}_${GOOS}_${GOARCH}${EXT}"
 
-    # Build with embedded version information
+    echo "Building $GOOS/$GOARCH..."
+    # Single -ldflags: multiple -ldflags overwrite each other, so version/buildDate would be lost
+    LDFLAGS="-s -w -X main.versionCLI=${VERSION} -X main.gitCommit=${GIT_COMMIT} -X main.buildDate=${BUILD_DATE} -extldflags \"-static\""
     CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH go build \
-      -ldflags="-s -w -X main.versionCLI=${VERSION} -X main.gitCommit=${GIT_COMMIT} -X main.buildDate=${BUILD_DATE}" \
+      -ldflags="$LDFLAGS" \
       -o bin/$BINARY \
-      -a -ldflags '-extldflags "-static"' .
+      -a .
 
     cd bin
       chmod +x $BINARY
