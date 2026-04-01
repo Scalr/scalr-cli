@@ -25,6 +25,71 @@ type Parameter struct {
 	value       *string
 }
 
+func parameterValue(flags map[string]Parameter, name string) string {
+	flag, ok := flags[name]
+	if !ok || flag.value == nil {
+		return ""
+	}
+
+	return strings.TrimSpace(*flag.value)
+}
+
+func buildCreateRunVariables(flags map[string]Parameter) []any {
+	key := parameterValue(flags, "variables-key")
+	if key == "" {
+		key = parameterValue(flags, "inputs-name")
+	}
+
+	value := parameterValue(flags, "variables-value")
+	if value == "" {
+		value = parameterValue(flags, "inputs-value")
+	}
+
+	sensitive := parameterValue(flags, "variables-sensitive")
+	if sensitive == "" {
+		sensitive = parameterValue(flags, "inputs-sensitive")
+	}
+
+	category := parameterValue(flags, "variables-category")
+	if category == "" && (parameterValue(flags, "inputs-name") != "" ||
+		parameterValue(flags, "inputs-value") != "" ||
+		parameterValue(flags, "inputs-sensitive") != "") {
+		category = "terraform"
+	}
+
+	hcl := parameterValue(flags, "variables-hcl")
+
+	if key == "" && value == "" && category == "" && sensitive == "" && hcl == "" {
+		return nil
+	}
+
+	variable := map[string]any{}
+
+	if key != "" {
+		variable["key"] = key
+	}
+
+	if value != "" {
+		variable["value"] = value
+	}
+
+	if category != "" {
+		variable["category"] = category
+	}
+
+	if sensitive != "" {
+		val, _ := strconv.ParseBool(sensitive)
+		variable["sensitive"] = val
+	}
+
+	if hcl != "" {
+		val, _ := strconv.ParseBool(hcl)
+		variable["hcl"] = val
+	}
+
+	return []any{variable}
+}
+
 // Rename flags with odd names that causes issues in some shells
 func renameFlag(name string) string {
 	name = strings.ReplaceAll(name, "[", "-")
@@ -382,6 +447,12 @@ func parseCommand(format string, verbose bool, quiet bool) {
 						}
 
 						collectAttributes(action.RequestBody.Value.Content[contentType].Schema.Value, "")
+
+						if command == "create-run" {
+							if variables := buildCreateRunVariables(flags); len(variables) > 0 {
+								raw.SetP(variables, "data.attributes.variables")
+							}
+						}
 
 						body = raw.StringIndent("", "  ")
 					}
