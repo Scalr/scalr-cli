@@ -50,10 +50,9 @@ do
     BINARY="scalr-cli_${VERSION}_${GOOS}_${GOARCH}${EXT}"
 
     echo "Building $GOOS/$GOARCH..."
-    # Single -ldflags: multiple -ldflags overwrite each other, so version/buildDate would be lost
-    LDFLAGS="-s -w -X main.versionCLI=${VERSION} -X main.gitCommit=${GIT_COMMIT} -X main.buildDate=${BUILD_DATE} -extldflags \"-static\""
+    # CGO_ENABLED=0 already ensures static binaries; no -extldflags needed
     CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH go build \
-      -ldflags="$LDFLAGS" \
+      -ldflags "-s -w -X main.versionCLI=${VERSION} -X main.buildDate=${BUILD_DATE}" \
       -o bin/$BINARY \
       -a .
 
