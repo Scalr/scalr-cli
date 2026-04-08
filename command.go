@@ -139,13 +139,23 @@ func parseCommand(format string, verbose bool, quiet bool) {
 									continue
 								}
 
+								// Resolve enum from AnyOf if Type is nil (e.g. provider-name, working-directory)
+								enum := attribute.Value.Enum
+								if attribute.Value.AnyOf != nil {
+									for _, item := range attribute.Value.AnyOf {
+										if item.Value.Enum != nil {
+											enum = item.Value.Enum
+										}
+									}
+								}
+
 								required := false
 								if requiredFlags[flagName] {
 									required = true
 								}
 
 								//If flag is required and only one value is available, no need to offer it to the user
-								if required && attribute.Value.Enum != nil && len(attribute.Value.Enum) == 1 {
+								if required && enum != nil && len(enum) == 1 {
 									continue
 								}
 
@@ -154,7 +164,7 @@ func parseCommand(format string, verbose bool, quiet bool) {
 								flags[flagName] = Parameter{
 									location: "body",
 									required: required,
-									enum:     attribute.Value.Enum,
+									enum:     enum,
 									value:    new(string),
 								}
 
@@ -335,6 +345,16 @@ func parseCommand(format string, verbose bool, quiet bool) {
 								}
 
 								theType := attribute.Value.Type
+
+								// Resolve type from AnyOf (e.g. provider-name, working-directory)
+								if theType == nil && attribute.Value.AnyOf != nil {
+									for _, item := range attribute.Value.AnyOf {
+										if item.Value.Type != nil {
+											theType = item.Value.Type
+											break
+										}
+									}
+								}
 
 								//If no type is specified, it's a relationship
 								if theType == nil {

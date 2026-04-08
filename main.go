@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -266,14 +265,22 @@ func loadAPI() *openapi3.T {
 
 	spec := cacheDir + "cache-openapi-preview.yml"
 
+	specURL := "https://" + ScalrHostname + "/api/iacp/v3/openapi-preview.yml"
+
 	if info, err := os.Stat(spec); !os.IsNotExist(err) {
 		if time.Since(info.ModTime()).Hours() > 24 {
 			//Cache is more than 24 hours old, re-Download...
-			downloadFile("https://"+ScalrHostname+"/api/iacp/v3/openapi-preview.yml", spec)
+			if dlErr := downloadFile(specURL, spec); dlErr != nil {
+				fmt.Fprintf(os.Stderr, "Warning: Could not refresh API spec: %s. Using cached version.\n", dlErr)
+			}
 		}
 	} else {
 		//Download spec
-		downloadFile("https://"+ScalrHostname+"/api/iacp/v3/openapi-preview.yml", spec)
+		if dlErr := downloadFile(specURL, spec); dlErr != nil {
+			fmt.Fprintf(os.Stderr, "Error: Could not download API specification from %s: %s\n", ScalrHostname, dlErr)
+			fmt.Fprintf(os.Stderr, "Please check your SCALR_HOSTNAME setting and network connection.\n")
+			os.Exit(1)
+		}
 	}
 
 	loader := openapi3.NewLoader()
@@ -324,34 +331,43 @@ func disableExternalFiles(reader openapi3.ReadFromURIFunc) openapi3.ReadFromURIF
 }
 
 // Downloads a file
-func downloadFile(URL string, fileName string) {
+func downloadFile(URL string, fileName string) error {
 
 	client := &http.Client{}
 
 	req, err := http.NewRequest("GET", URL, nil)
-	checkErr(err)
+	if err != nil {
+		return err
+	}
 
 	req.Header.Set("User-Agent", "scalr-cli/"+versionCLI)
 
 	resp, err := client.Do(req)
-	checkErr(err)
+	if err != nil {
+		return err
+	}
 
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
-	checkErr(err)
+	if err != nil {
+		return err
+	}
 
 	if resp.StatusCode != 200 {
-		panic(errors.New("received non-200 response code from server"))
+		return fmt.Errorf("received non-200 response code (%d) from server", resp.StatusCode)
 	}
 
 	//Create a empty file
 	file, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
-	checkErr(err)
+	if err != nil {
+		return err
+	}
 	defer file.Close()
 
 	file.WriteString(string(body))
 	file.Sync()
 
+	return nil
 }
 
 // Recursively collect all required fields
