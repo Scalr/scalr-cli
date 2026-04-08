@@ -270,13 +270,13 @@ func loadAPI() *openapi3.T {
 	if info, err := os.Stat(spec); !os.IsNotExist(err) {
 		if time.Since(info.ModTime()).Hours() > 24 {
 			//Cache is more than 24 hours old, re-Download...
-			if dlErr := downloadFile(specURL, spec); dlErr != nil {
+			if dlErr := downloadAndValidateSpec(specURL, spec, cacheDir); dlErr != nil {
 				fmt.Fprintf(os.Stderr, "Warning: Could not refresh API spec: %s. Using cached version.\n", dlErr)
 			}
 		}
 	} else {
 		//Download spec
-		if dlErr := downloadFile(specURL, spec); dlErr != nil {
+		if dlErr := downloadAndValidateSpec(specURL, spec, cacheDir); dlErr != nil {
 			fmt.Fprintf(os.Stderr, "Error: Could not download API specification from %s: %s\n", ScalrHostname, dlErr)
 			fmt.Fprintf(os.Stderr, "Please check your SCALR_HOSTNAME setting and network connection.\n")
 			os.Exit(1)
@@ -328,6 +328,31 @@ func disableExternalFiles(reader openapi3.ReadFromURIFunc) openapi3.ReadFromURIF
 
 		return reader(loader, location)
 	}
+}
+
+// Downloads the API spec to a temp file, validates it, then replaces the cache
+func downloadAndValidateSpec(specURL string, specPath string, tmpDir string) error {
+	tmpFile := tmpDir + "cache-openapi-preview.yml.tmp"
+
+	if err := downloadFile(specURL, tmpFile); err != nil {
+		os.Remove(tmpFile)
+		return err
+	}
+
+	// Validate the downloaded spec can be parsed before replacing the cache
+	loader := openapi3.NewLoader()
+	_, err := loader.LoadFromFile(tmpFile)
+	if err != nil {
+		os.Remove(tmpFile)
+		return fmt.Errorf("downloaded spec is invalid: %s", err)
+	}
+
+	if err := os.Rename(tmpFile, specPath); err != nil {
+		os.Remove(tmpFile)
+		return err
+	}
+
+	return nil
 }
 
 // Downloads a file
