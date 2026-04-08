@@ -353,11 +353,11 @@ func autoCompleteGitbash(home string, fname string) string {
 		input, err := os.ReadFile(os.Getenv("EXEPATH") + "\\etc\\bash.bashrc")
 		checkErr(err)
 
-		err = os.WriteFile(theConfig, input, 0666)
+		err = os.WriteFile(theConfig, input, 0600)
 		checkErr(err)
 	}
 
-	f, err := os.OpenFile(theConfig, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0666)
+	f, err := os.OpenFile(theConfig, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0600)
 	checkErr(err)
 	defer f.Close()
 
@@ -389,7 +389,7 @@ func autoCompleteBash(home string, fname string) string {
 
 	theConfig := home + "/" + ".bashrc"
 
-	f, err := os.OpenFile(theConfig, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0666)
+	f, err := os.OpenFile(theConfig, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0600)
 	checkErr(err)
 	defer f.Close()
 
@@ -419,7 +419,7 @@ func autoCompleteZsh(home string, fname string) string {
 
 	theConfig := home + "/" + ".zshrc"
 
-	f, err := os.OpenFile(theConfig, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0666)
+	f, err := os.OpenFile(theConfig, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0600)
 	checkErr(err)
 	defer f.Close()
 
