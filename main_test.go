@@ -50,11 +50,6 @@ func Test_Check(t *testing.T) {
 
 	t.Log("Will run tests against host: " + hostname)
 
-	_, ok = os.LookupEnv("SCALR_ACCOUNT")
-	if !ok {
-		t.Fatalf("Required environment variable SCALR_ACCOUNT is not set")
-	}
-
 }
 
 func Test_Compile(t *testing.T) {
@@ -85,7 +80,6 @@ func Test_Version(t *testing.T) {
 
 func Test_Tags(t *testing.T) {
 
-	account_id, _ := os.LookupEnv("SCALR_ACCOUNT")
 	name := "test-tag"
 
 	t.Log("List all tags")
@@ -105,7 +99,7 @@ func Test_Tags(t *testing.T) {
 
 	t.Log("Create tag")
 
-	_, output, err = run_test(t, "create-tag", "-account-id="+account_id, "-name="+name)
+	_, output, err = run_test(t, "create-tag", "-name="+name)
 
 	if err != nil {
 		t.Fatalf(output.String())
