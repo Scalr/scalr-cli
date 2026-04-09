@@ -518,8 +518,6 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 			req.Header.Add("Authorization", "Bearer "+ScalrToken)
 		}
 
-		req.Header.Add("Prefer", "profile=preview")
-
 		if contentType != "" {
 			req.Header.Add("Content-Type", contentType)
 		}
