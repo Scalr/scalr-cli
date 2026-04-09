@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -139,13 +140,23 @@ func parseCommand(format string, verbose bool, quiet bool) {
 									continue
 								}
 
+								// Resolve enum from AnyOf if Type is nil (e.g. provider-name, working-directory)
+								enum := attribute.Value.Enum
+								if attribute.Value.AnyOf != nil {
+									for _, item := range attribute.Value.AnyOf {
+										if item.Value.Enum != nil {
+											enum = item.Value.Enum
+										}
+									}
+								}
+
 								required := false
 								if requiredFlags[flagName] {
 									required = true
 								}
 
 								//If flag is required and only one value is available, no need to offer it to the user
-								if required && attribute.Value.Enum != nil && len(attribute.Value.Enum) == 1 {
+								if required && enum != nil && len(enum) == 1 {
 									continue
 								}
 
@@ -154,7 +165,7 @@ func parseCommand(format string, verbose bool, quiet bool) {
 								flags[flagName] = Parameter{
 									location: "body",
 									required: required,
-									enum:     attribute.Value.Enum,
+									enum:     enum,
 									value:    new(string),
 								}
 
@@ -336,6 +347,16 @@ func parseCommand(format string, verbose bool, quiet bool) {
 
 								theType := attribute.Value.Type
 
+								// Resolve type from AnyOf (e.g. provider-name, working-directory)
+								if theType == nil && attribute.Value.AnyOf != nil {
+									for _, item := range attribute.Value.AnyOf {
+										if item.Value.Type != nil {
+											theType = item.Value.Type
+											break
+										}
+									}
+								}
+
 								//If no type is specified, it's a relationship
 								if theType == nil {
 									theType = &openapi3.Types{}
@@ -399,8 +420,21 @@ func parseCommand(format string, verbose bool, quiet bool) {
 				// Extract hostname from parameter
 				email := flags["service-account-email"].value
 
-				// Extract hostname from email
-				ScalrHostname = strings.Split(*email, "@")[1]
+				parts := strings.Split(*email, "@")
+				if len(parts) != 2 || parts[1] == "" {
+					fmt.Println("Error: Invalid service account email format")
+					os.Exit(1)
+				}
+
+				host := parts[1]
+
+				// Validate hostname to prevent SSRF attacks
+				if !isValidExternalHost(host) {
+					fmt.Printf("Error: Invalid hostname '%s' extracted from service account email\n", host)
+					os.Exit(1)
+				}
+
+				ScalrHostname = host
 			}
 
 			//Make request to the API
@@ -430,6 +464,27 @@ func shortenName(flagName string) string {
 	flagName = strings.TrimPrefix(flagName, "data-")
 
 	return flagName
+}
+
+// isValidExternalHost rejects hostnames that point to localhost or private networks to prevent SSRF
+func isValidExternalHost(host string) bool {
+	// Must contain at least one dot (reject "localhost", single-label names)
+	if !strings.Contains(host, ".") {
+		return false
+	}
+
+	// Reject if it parses as an IP address (we expect a domain name)
+	if ip := net.ParseIP(host); ip != nil {
+		return false
+	}
+
+	// Reject well-known localhost aliases
+	lower := strings.ToLower(host)
+	if strings.HasSuffix(lower, ".localhost") || strings.HasSuffix(lower, ".local") {
+		return false
+	}
+
+	return true
 }
 
 // Make a request to the Scalr API
@@ -462,8 +517,6 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 		if ScalrToken != "" {
 			req.Header.Add("Authorization", "Bearer "+ScalrToken)
 		}
-
-		req.Header.Add("Prefer", "profile=preview")
 
 		if contentType != "" {
 			req.Header.Add("Content-Type", contentType)

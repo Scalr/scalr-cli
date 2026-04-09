@@ -370,7 +370,7 @@ func printHelpCommand(command string) {
 						options := make([]string, len(flags[flg].enum))
 
 						for index, value := range flags[flg].enum {
-							options[index] = value.(string)
+							options[index] = fmt.Sprintf("%v", value)
 						}
 
 						fmt.Println(colorBlue, strings.Repeat(" ", maxLength+3), "[", strings.Join(options, ", "), "]", colorReset)
