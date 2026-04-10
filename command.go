@@ -16,6 +16,14 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
+// Exit codes for scripting/CI use
+const (
+	ExitSuccess        = 0 // Command succeeded
+	ExitError          = 1 // Permanent error (bad input, 4xx, etc.)
+	ExitUsageError     = 2 // Invalid flags, missing required args
+	ExitTransientError = 3 // Transient error (5xx, network, timeout) — safe to retry
+)
+
 type Parameter struct {
 	varType     string
 	orgName     string
@@ -26,6 +34,21 @@ type Parameter struct {
 	value       *string
 }
 
+// Command aliases: short names for frequently used commands
+var commandAliases = map[string]string{
+	"ws":    "list-workspaces",
+	"envs":  "list-environments",
+	"runs":  "list-runs",
+	"vars":  "list-variables",
+	"tags":  "list-tags",
+	"accs":  "list-accounts",
+	"pols":  "list-policy-groups",
+	"sa":    "list-service-accounts",
+	"teams": "list-teams",
+	"users": "list-users",
+	"vcs":   "list-vcs-providers",
+}
+
 // Rename flags with odd names that causes issues in some shells
 func renameFlag(name string) string {
 	name = strings.ReplaceAll(name, "[", "-")
@@ -34,11 +57,16 @@ func renameFlag(name string) string {
 	return name
 }
 
-func parseCommand(format string, verbose bool, quiet bool) {
+func parseCommand(format string, verbose bool, quiet bool, columns string, fields string, pageSize int, pageNum int, queryExpr string) {
 
 	doc := loadAPI()
 
 	command := flag.Arg(0)
+
+	// Resolve command aliases
+	if target, ok := commandAliases[command]; ok {
+		command = target
+	}
 
 	for uri, path := range doc.Paths.Map() {
 		for method, action := range path.Operations() {
@@ -227,6 +255,11 @@ func parseCommand(format string, verbose bool, quiet bool) {
 					continue
 				}
 
+				// Attempt name-to-ID resolution for path/query parameters
+				if parameter.location == "path" || parameter.location == "query" {
+					*parameter.value = resolveNameToID(name, *parameter.value)
+				}
+
 				switch parameter.location {
 				case "query":
 					//This flag value should be sent as a query parameter
@@ -249,8 +282,8 @@ func parseCommand(format string, verbose bool, quiet bool) {
 					(stat.Mode()&os.ModeCharDevice == 0) && stat.Size() > 0 {
 
 					if len(missing) > 0 {
-						fmt.Printf("Missing required flag(s): %s\n", missing)
-						os.Exit(1)
+						fmt.Fprintf(os.Stderr, "Missing required flag(s): %s\n", missing)
+						os.Exit(ExitUsageError)
 					}
 
 					var stdin []byte
@@ -268,13 +301,13 @@ func parseCommand(format string, verbose bool, quiet bool) {
 					// FIXME: Disable required attributes for PATCH requests as the specs are incorrect
 					if method != "PATCH" {
 						if len(missingBody) > 0 || len(missing) > 0 {
-							fmt.Printf("Missing required flag(s): %s\n", append(missing, missingBody...))
-							os.Exit(1)
+							fmt.Fprintf(os.Stderr, "Missing required flag(s): %s\n", append(missing, missingBody...))
+							os.Exit(ExitUsageError)
 						}
 					} else {
 						if len(missing) > 0 {
-							fmt.Printf("Missing required flag(s): %s\n", missing)
-							os.Exit(1)
+							fmt.Fprintf(os.Stderr, "Missing required flag(s): %s\n", missing)
+							os.Exit(ExitUsageError)
 						}
 					}
 
@@ -410,8 +443,8 @@ func parseCommand(format string, verbose bool, quiet bool) {
 
 			} else {
 				if len(missing) > 0 {
-					fmt.Printf("Missing required flag(s): %s\n", missing)
-					os.Exit(1)
+					fmt.Fprintf(os.Stderr, "Missing required flag(s): %s\n", missing)
+					os.Exit(ExitUsageError)
 				}
 			}
 
@@ -422,31 +455,45 @@ func parseCommand(format string, verbose bool, quiet bool) {
 
 				parts := strings.Split(*email, "@")
 				if len(parts) != 2 || parts[1] == "" {
-					fmt.Println("Error: Invalid service account email format")
-					os.Exit(1)
+					fmt.Fprintln(os.Stderr, "Error: Invalid service account email format")
+					os.Exit(ExitUsageError)
 				}
 
 				host := parts[1]
 
 				// Validate hostname to prevent SSRF attacks
 				if !isValidExternalHost(host) {
-					fmt.Printf("Error: Invalid hostname '%s' extracted from service account email\n", host)
-					os.Exit(1)
+					fmt.Fprintf(os.Stderr, "Error: Invalid hostname '%s' extracted from service account email\n", host)
+					os.Exit(ExitUsageError)
 				}
 
 				ScalrHostname = host
 			}
 
+			// Detect resource type from the response type (used for table column defaults)
+			resourceType := ""
+			if action.Extensions["x-resource"] != nil {
+				rt := action.Extensions["x-resource"].(string)
+				// Convert "Workspaces" -> "workspaces" etc.
+				resourceType = strings.ToLower(rt)
+				// Handle multi-word like "PolicyGroups" -> "policy-groups"
+				for i := 1; i < len(rt); i++ {
+					if rt[i] >= 'A' && rt[i] <= 'Z' {
+						resourceType = strings.ToLower(rt[:i]) + "-" + strings.ToLower(rt[i:])
+					}
+				}
+			}
+
 			//Make request to the API
-			callAPI(method, uri, query, body, contentType, verbose, format, quiet)
+			callAPI(method, uri, query, body, contentType, verbose, format, quiet, columns, fields, pageSize, pageNum, resourceType, queryExpr)
 
 			return
 		}
 	}
 
 	//Command not found
-	fmt.Printf("\nCommand '%s' not found. Use -help to list available commands.\n\n", command)
-	os.Exit(1)
+	fmt.Fprintf(os.Stderr, "\nCommand '%s' not found. Use -help to list available commands.\n\n", command)
+	os.Exit(ExitUsageError)
 }
 
 // Helper function to shorter flag-names for convenience
@@ -488,25 +535,49 @@ func isValidExternalHost(host string) bool {
 }
 
 // Make a request to the Scalr API
-func callAPI(method string, uri string, query url.Values, body string, contentType string, verbose bool, format string, quiet bool) {
+func callAPI(method string, uri string, query url.Values, body string, contentType string, verbose bool, format string, quiet bool, columns string, fields string, pageSizeFlag int, pageNumFlag int, resourceType string, queryExpr string) {
 
 	output := gabs.New()
 	output.Array()
 
-	query.Add("page[size]", "100")
+	// Pagination: use user-specified page size or default to 100
+	effectivePageSize := 100
+	if pageSizeFlag > 0 {
+		effectivePageSize = pageSizeFlag
+	}
+	query.Add("page[size]", strconv.Itoa(effectivePageSize))
 
-	for page := 1; true; page++ {
+	// If -page is specified, only fetch that single page
+	singlePage := pageNumFlag > 0
+	startPage := 1
+	if singlePage {
+		startPage = pageNumFlag
+	}
+
+	var lastPaginationMeta *gabs.Container
+
+	for page := startPage; true; page++ {
 
 		query.Set("page[number]", strconv.Itoa(page))
 
 		if verbose {
-			fmt.Println(method, "https://"+ScalrHostname+BasePath+uri+"?"+query.Encode())
+			fmt.Fprintln(os.Stderr, method, "https://"+ScalrHostname+BasePath+uri+"?"+query.Encode())
 
 			if contentType != "" {
-				fmt.Println("Content-Type = " + contentType)
-				fmt.Println(body)
+				fmt.Fprintln(os.Stderr, "Content-Type = "+contentType)
+				fmt.Fprintln(os.Stderr, body)
 			}
 
+		}
+
+		// Show spinner for non-verbose, non-quiet, TTY sessions
+		var stopSpinner func()
+		if !verbose && !quiet {
+			if page > 1 {
+				stopSpinner = paginationSpinner(page)
+			} else {
+				stopSpinner = startSpinner("")
+			}
 		}
 
 		req, err := http.NewRequest(method, "https://"+ScalrHostname+BasePath+uri+"?"+query.Encode(), strings.NewReader(body))
@@ -522,19 +593,25 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 			req.Header.Add("Content-Type", contentType)
 		}
 
-		res, err := http.DefaultClient.Do(req)
-		checkErr(err)
+		res, err := doWithRetry(req)
+		if stopSpinner != nil {
+			stopSpinner()
+		}
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: Request failed: %s\n", err)
+			os.Exit(ExitTransientError)
+		}
 
 		resBody, err := io.ReadAll(res.Body)
 		checkErr(err)
 
 		if verbose {
 			//Show raw server response
-			fmt.Println(string(resBody))
+			fmt.Fprintln(os.Stderr, string(resBody))
 		}
 
 		if res.StatusCode >= 300 {
-			showError(resBody)
+			showError(resBody, res.StatusCode)
 		}
 
 		//Empty response, quit early
@@ -585,30 +662,124 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 			output.ArrayAppend(data)
 		}
 
+		// Save pagination metadata for display
+		if response.Exists("meta", "pagination") {
+			lastPaginationMeta = response.Path("meta.pagination")
+		}
+
+		// If fetching a single page, stop after one iteration
+		if singlePage {
+			break
+		}
+
 		if response.Path("meta.pagination.next-page").Data() == nil {
 			break
 		}
 
 	}
 
-	//TODO: Add different outputs, such as YAML, CSV and TABLE
-	//formatJSON(resBody)
 	if !quiet {
-		fmt.Println(output.StringIndent("", "  "))
+		// Apply field selection if requested
+		isArray := output.Exists("0")
+		if fields != "" {
+			output = filterFields(output, fields, isArray)
+		}
+
+		// Apply query expression if requested
+		if queryExpr != "" {
+			result, isSimple := applyQuery(output, queryExpr, isArray)
+			formatQueryResult(result, isSimple)
+		} else {
+			// Format and display output
+			formatOutput(output, format, isArray, columns, resourceType)
+		}
+
+		// Show pagination info in table/csv mode
+		if (format == "table" || format == "csv") && lastPaginationMeta != nil {
+			totalPages := lastPaginationMeta.Path("total-pages").Data()
+			totalCount := lastPaginationMeta.Path("total-count").Data()
+			currentPage := startPage
+			if !singlePage && totalPages != nil {
+				if tp, ok := totalPages.(float64); ok {
+					currentPage = int(tp)
+				}
+			}
+			formatPaginationInfo(currentPage, totalPages, totalCount)
+		}
 	}
 }
 
-// Parse error response and show it to user
-func showError(resBody []byte) {
+// Parse error response and show human-readable error message.
+// Falls back to raw JSON if the response doesn't follow JSONAPI error format.
+// Uses distinct exit codes: ExitError (1) for 4xx, ExitTransientError (3) for 5xx.
+func showError(resBody []byte, httpStatus ...int) {
+
+	// Determine exit code based on HTTP status
+	exitCode := ExitError
+	if len(httpStatus) > 0 && httpStatus[0] >= 500 {
+		exitCode = ExitTransientError
+	}
 
 	jsonParsed, err := gabs.ParseJSON(resBody)
 	if err != nil {
-		fmt.Println("Server did not return a valid JSON response")
-	} else {
-		fmt.Println(jsonParsed.StringIndent("", "  "))
+		fmt.Fprintln(os.Stderr, "Error: Server did not return a valid JSON response")
+		fmt.Fprintln(os.Stderr, string(resBody))
+		os.Exit(exitCode)
 	}
 
-	os.Exit(1)
+	// Try to parse JSONAPI errors array for human-readable output
+	if jsonParsed.Exists("errors") {
+		printed := false
+		for _, errObj := range jsonParsed.Path("errors").Children() {
+			status := ""
+			if errObj.Exists("status") {
+				status = fmt.Sprintf("%v", errObj.Path("status").Data())
+			}
+
+			title := ""
+			if errObj.Exists("title") {
+				title = fmt.Sprintf("%v", errObj.Path("title").Data())
+			}
+
+			detail := ""
+			if errObj.Exists("detail") {
+				detail = fmt.Sprintf("%v", errObj.Path("detail").Data())
+			}
+
+			pointer := ""
+			if errObj.ExistsP("source.pointer") {
+				pointer = fmt.Sprintf("%v", errObj.Path("source.pointer").Data())
+			}
+
+			// Build a concise error line
+			parts := make([]string, 0, 4)
+			if status != "" {
+				parts = append(parts, status)
+			}
+			if title != "" {
+				parts = append(parts, title)
+			}
+			if detail != "" && detail != title {
+				parts = append(parts, detail)
+			}
+			if pointer != "" {
+				parts = append(parts, "(field: "+pointer+")")
+			}
+
+			if len(parts) > 0 {
+				fmt.Fprintln(os.Stderr, "Error:", strings.Join(parts, ": "))
+				printed = true
+			}
+		}
+
+		if printed {
+			os.Exit(exitCode)
+		}
+	}
+
+	// Fallback: print raw JSON
+	fmt.Fprintln(os.Stderr, jsonParsed.StringIndent("", "  "))
+	os.Exit(exitCode)
 }
 
 // Data JSON:API data to make it easier to work with

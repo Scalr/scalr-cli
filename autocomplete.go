@@ -70,11 +70,11 @@ func listComplete(items []string, prefix string) {
 func autoBasic(flags []string) {
 
 	if flags[0] != "" && flags[0][:1] == "-" && len(flags) == 1 {
-		listComplete([]string{"-version ", "-help ", "-verbose ", "-configure ", "-update ", "-autocomplete "}, flags[0])
+		listComplete([]string{"-version ", "-help ", "-verbose ", "-configure ", "-update ", "-autocomplete ", "-format=", "-columns=", "-fields=", "-page=", "-page-size=", "-profile=", "-query=", "-quiet "}, flags[0])
 	}
 }
 
-// List all available commands
+// List all available commands (including aliases and built-in commands)
 func autoCommands(allFlags map[string]map[string][]string, flags []string, prefix string) {
 	if len(flags) <= 1 || (len(flags) == 2 && flags[0][:1] == "-") {
 
@@ -83,6 +83,14 @@ func autoCommands(allFlags map[string]map[string][]string, flags []string, prefi
 		for command := range allFlags {
 			commands = append(commands, command+" ")
 		}
+
+		// Add aliases
+		for alias := range commandAliases {
+			commands = append(commands, alias+" ")
+		}
+
+		// Add built-in commands
+		commands = append(commands, "wait-for-run ")
 
 		listComplete(commands, prefix)
 	}
