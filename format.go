@@ -63,7 +63,7 @@ func resolveFormat(format string, formatExplicit bool) string {
 // columns is the user-specified column list (empty means auto-detect).
 // resourceType is used to look up default columns.
 func formatOutput(data *gabs.Container, format string, isArray bool, columns string, resourceType string) {
-	switch format {
+	switch strings.TrimSpace(format) {
 	case "table":
 		if isArray {
 			formatTable(data, columns, resourceType)
@@ -301,12 +301,22 @@ func extractValue(item *gabs.Container, field string) string {
 }
 
 // formatScalar converts a gabs value to a display string.
+// Handles *gabs.Container wrappers that parseData creates for id/type fields.
 func formatScalar(v *gabs.Container) string {
 	if v == nil || v.Data() == nil {
 		return ""
 	}
 
-	switch val := v.Data().(type) {
+	// Unwrap nested *gabs.Container (parseData uses SetP with containers)
+	data := v.Data()
+	if inner, ok := data.(*gabs.Container); ok {
+		if inner == nil || inner.Data() == nil {
+			return ""
+		}
+		data = inner.Data()
+	}
+
+	switch val := data.(type) {
 	case string:
 		return val
 	case bool:

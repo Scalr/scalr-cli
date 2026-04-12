@@ -34,19 +34,22 @@ type Parameter struct {
 	value       *string
 }
 
-// Command aliases: short names for frequently used commands
+// Command aliases: short names for frequently used commands.
+// Targets are validated at startup against the actual OpenAPI spec —
+// use the exact operation ID (kebab-case) from `scalr -help`.
 var commandAliases = map[string]string{
-	"ws":    "list-workspaces",
+	"ws":    "get-workspaces",
 	"envs":  "list-environments",
-	"runs":  "list-runs",
-	"vars":  "list-variables",
+	"runs":  "get-runs",
+	"vars":  "get-variables",
 	"tags":  "list-tags",
-	"accs":  "list-accounts",
+	"accs":  "get-accounts",
 	"pols":  "list-policy-groups",
-	"sa":    "list-service-accounts",
-	"teams": "list-teams",
-	"users": "list-users",
+	"sa":    "get-service-accounts",
+	"teams": "get-teams",
+	"users": "get-users",
 	"vcs":   "list-vcs-providers",
+	"mods":  "list-modules",
 }
 
 // Rename flags with odd names that causes issues in some shells
