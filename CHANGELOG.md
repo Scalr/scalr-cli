@@ -8,10 +8,10 @@ This release transforms the Scalr CLI from a raw API wrapper into a productivity
 
 ### Table Output (auto-detected)
 
-The CLI now shows results as aligned tables when you're working in a terminal, and keeps JSON when output is piped. No flags needed — it just does the right thing.
+Use `-format=table` to get aligned, scannable output. JSON remains the default for full backward compatibility — existing scripts are not affected.
 
 ```
-$ scalr list-workspaces
+$ scalr -format=table list-workspaces
 ID            NAME           STATUS     TERRAFORM-VERSION  AUTO-APPLY  EXECUTION-MODE
 ----------    -----------    --------   -----------------  ----------  --------------
 ws-abc123     production     applied    1.7.0              true        remote
@@ -19,13 +19,12 @@ ws-def456     staging        planned    1.7.0              false       remote
 ws-ghi789     dev-sandbox    applied    1.6.6              true        local
 (page 1 of 1, 3 total)
 
-$ scalr list-workspaces | jq '.[].name'    # still JSON when piped
-"production"
-"staging"
-"dev-sandbox"
+$ scalr list-workspaces              # JSON by default — no breaking change
+[
+  { "id": "ws-abc123", "name": "production", ... },
+  ...
+]
 ```
-
-Force a specific format anytime with `-format=json`, `-format=table`, or `-format=csv`.
 
 **Why this matters:** Scanning 50 workspaces in raw JSON required mental gymnastics. Tables let you find what you need at a glance.
 

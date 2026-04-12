@@ -180,13 +180,8 @@ func main() {
 		return
 	}
 
-	// Determine actual output format (auto-detect TTY if not explicitly set)
-	formatExplicit := *format != ""
-	actualFormat := *format
-	if actualFormat == "" {
-		actualFormat = "json"
-	}
-	actualFormat = resolveFormat(actualFormat, formatExplicit)
+	// Determine output format — JSON is always the default for backward compatibility.
+	actualFormat := resolveFormat(*format)
 
 	parseCommand(actualFormat, *verbose, *quiet, *columns, *fields, *pageSize, *pageNum, *queryExpr)
 }

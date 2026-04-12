@@ -45,14 +45,12 @@ func isTerminal() bool {
 	return term.IsTerminal(int(os.Stdout.Fd()))
 }
 
-// resolveFormat determines the actual output format based on the -format flag and terminal state.
-// If no format was explicitly set (i.e., still "json"), auto-detect: table for TTY, json for pipes.
-func resolveFormat(format string, formatExplicit bool) string {
-	if formatExplicit {
+// resolveFormat determines the actual output format.
+// JSON is always the default to avoid breaking existing scripts.
+// Table/CSV output requires an explicit -format=table or -format=csv flag.
+func resolveFormat(format string) string {
+	if format != "" {
 		return format
-	}
-	if isTerminal() {
-		return "table"
 	}
 	return "json"
 }

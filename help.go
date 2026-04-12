@@ -35,7 +35,7 @@ func printInfo() {
 	fmt.Print("  -update", "             ", "Updates this tool to the latest version by downloading and replacing current binary", "\n")
 	fmt.Print("  -autocomplete", "       ", "Enable shell tab auto-complete", "\n")
 	fmt.Print("  -quiet", "              ", "Disables printing server responses", "\n")
-	fmt.Print("  -format=STRING", "      ", "Output format: json, table, csv (auto-detects: table for TTY, json for pipes)", "\n")
+	fmt.Print("  -format=STRING", "      ", "Output format: json (default), table, csv", "\n")
 	fmt.Print("  -columns=LIST", "       ", "Comma-separated list of columns to display in table/csv output", "\n")
 	fmt.Print("  -fields=LIST", "        ", "Comma-separated list of fields to include in output (all formats)", "\n")
 	fmt.Print("  -page=INT", "           ", "Fetch only a specific page number (default: fetch all pages)", "\n")
