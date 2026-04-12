@@ -259,9 +259,10 @@ Scripts can now distinguish between error types for proper retry logic.
 | Code | Meaning | Action |
 |------|---------|--------|
 | **0** | Success | Continue |
-| **1** | Permanent error (4xx, validation, approval needed) | Fail the pipeline |
-| **2** | Usage error (missing flags, unknown command) | Fix the command |
+| **1** | Error (bad input, 4xx, missing flags, not found) | Fail the pipeline |
 | **3** | Transient error (5xx, network, timeout) | Retry safely |
+
+Exit code 1 is unchanged from previous versions — all non-transient errors. Exit code 3 is new and additive: scripts that check `!= 0` continue to work, while scripts that want smarter retry can check for 3 specifically.
 
 ```bash
 scalr create-workspace -name=prod -environment-id=env-xxx
@@ -269,7 +270,7 @@ rc=$?
 case $rc in
   0) echo "Created" ;;
   3) echo "Server issue, retrying..." && sleep 5 && retry ;;
-  *) echo "Failed permanently" && exit 1 ;;
+  *) echo "Failed" && exit 1 ;;
 esac
 ```
 

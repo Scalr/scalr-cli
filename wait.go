@@ -42,7 +42,7 @@ func waitForRun(runID string, timeout time.Duration) {
 
 	if runID == "" {
 		fmt.Fprintln(os.Stderr, "Error: -run flag is required")
-		os.Exit(ExitUsageError)
+		os.Exit(ExitError)
 	}
 
 	deadline := time.Now().Add(timeout)

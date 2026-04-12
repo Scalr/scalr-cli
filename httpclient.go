@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	defaultHTTPTimeout = 30 * time.Second
+	defaultHTTPTimeout = 5 * time.Minute // generous timeout — some Scalr operations are slow
 	maxRetries         = 3
 	retryBaseDelay     = 1 * time.Second
 )

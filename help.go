@@ -46,8 +46,7 @@ func printInfo() {
 
 	fmt.Print("Exit codes:", "\n")
 	fmt.Print("  0  Success", "\n")
-	fmt.Print("  1  Permanent error (bad input, 4xx, resource not found)", "\n")
-	fmt.Print("  2  Usage error (missing flags, unknown command)", "\n")
+	fmt.Print("  1  Error (bad input, 4xx, missing flags, not found)", "\n")
 	fmt.Print("  3  Transient error (5xx, network failure, timeout) — safe to retry", "\n\n")
 
 	fmt.Print("Aliases:", "\n")

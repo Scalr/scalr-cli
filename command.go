@@ -19,8 +19,7 @@ import (
 // Exit codes for scripting/CI use
 const (
 	ExitSuccess        = 0 // Command succeeded
-	ExitError          = 1 // Permanent error (bad input, 4xx, etc.)
-	ExitUsageError     = 2 // Invalid flags, missing required args
+	ExitError          = 1 // Any error (bad input, 4xx, missing flags, not found, etc.)
 	ExitTransientError = 3 // Transient error (5xx, network, timeout) — safe to retry
 )
 
@@ -286,7 +285,7 @@ func parseCommand(format string, verbose bool, quiet bool, columns string, field
 
 					if len(missing) > 0 {
 						fmt.Fprintf(os.Stderr, "Missing required flag(s): %s\n", missing)
-						os.Exit(ExitUsageError)
+						os.Exit(ExitError)
 					}
 
 					var stdin []byte
@@ -305,12 +304,12 @@ func parseCommand(format string, verbose bool, quiet bool, columns string, field
 					if method != "PATCH" {
 						if len(missingBody) > 0 || len(missing) > 0 {
 							fmt.Fprintf(os.Stderr, "Missing required flag(s): %s\n", append(missing, missingBody...))
-							os.Exit(ExitUsageError)
+							os.Exit(ExitError)
 						}
 					} else {
 						if len(missing) > 0 {
 							fmt.Fprintf(os.Stderr, "Missing required flag(s): %s\n", missing)
-							os.Exit(ExitUsageError)
+							os.Exit(ExitError)
 						}
 					}
 
@@ -447,7 +446,7 @@ func parseCommand(format string, verbose bool, quiet bool, columns string, field
 			} else {
 				if len(missing) > 0 {
 					fmt.Fprintf(os.Stderr, "Missing required flag(s): %s\n", missing)
-					os.Exit(ExitUsageError)
+					os.Exit(ExitError)
 				}
 			}
 
@@ -459,7 +458,7 @@ func parseCommand(format string, verbose bool, quiet bool, columns string, field
 				parts := strings.Split(*email, "@")
 				if len(parts) != 2 || parts[1] == "" {
 					fmt.Fprintln(os.Stderr, "Error: Invalid service account email format")
-					os.Exit(ExitUsageError)
+					os.Exit(ExitError)
 				}
 
 				host := parts[1]
@@ -467,7 +466,7 @@ func parseCommand(format string, verbose bool, quiet bool, columns string, field
 				// Validate hostname to prevent SSRF attacks
 				if !isValidExternalHost(host) {
 					fmt.Fprintf(os.Stderr, "Error: Invalid hostname '%s' extracted from service account email\n", host)
-					os.Exit(ExitUsageError)
+					os.Exit(ExitError)
 				}
 
 				ScalrHostname = host
@@ -496,7 +495,7 @@ func parseCommand(format string, verbose bool, quiet bool, columns string, field
 
 	//Command not found
 	fmt.Fprintf(os.Stderr, "\nCommand '%s' not found. Use -help to list available commands.\n\n", command)
-	os.Exit(ExitUsageError)
+	os.Exit(ExitError)
 }
 
 // Helper function to shorter flag-names for convenience
