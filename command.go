@@ -679,19 +679,40 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 	}
 
 	if !quiet {
-		// Apply field selection if requested
+		// Detect whether output is a list or a single object.
+		// output starts as an empty array (gabs.Array()). For single-item
+		// responses it gets reassigned to the item itself (a map). For list
+		// responses it stays as an array with elements appended.
+		// We check .Exists("0") to distinguish: arrays have numeric indices,
+		// single objects do not.
 		isArray := output.Exists("0")
-		if fields != "" {
-			output = filterFields(output, fields, isArray)
-		}
 
-		// Apply query expression if requested
-		if queryExpr != "" {
-			result, isSimple := applyQuery(output, queryExpr, isArray)
-			formatQueryResult(result, isSimple)
+		// Handle empty results: if output is still the initial empty array
+		// (no items appended, not reassigned to a single item), render
+		// appropriately instead of falling through to formatKeyValue.
+		isEmpty := false
+		if arr, ok := output.Data().([]interface{}); ok && len(arr) == 0 {
+			isEmpty = true
+		}
+		if isEmpty {
+			if format == "json" || format == "" {
+				fmt.Println("[]")
+			} else {
+				fmt.Println("No results found.")
+			}
 		} else {
-			// Format and display output
-			formatOutput(output, format, isArray, columns, resourceType)
+			if fields != "" {
+				output = filterFields(output, fields, isArray)
+			}
+
+			// Apply query expression if requested
+			if queryExpr != "" {
+				result, isSimple := applyQuery(output, queryExpr, isArray)
+				formatQueryResult(result, isSimple)
+			} else {
+				// Format and display output
+				formatOutput(output, format, isArray, columns, resourceType)
+			}
 		}
 
 		// Show pagination info in table/csv mode
