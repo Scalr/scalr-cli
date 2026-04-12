@@ -476,14 +476,17 @@ func parseCommand(format string, verbose bool, quiet bool, columns string, field
 			resourceType := ""
 			if action.Extensions["x-resource"] != nil {
 				rt := action.Extensions["x-resource"].(string)
-				// Convert "Workspaces" -> "workspaces" etc.
-				resourceType = strings.ToLower(rt)
-				// Handle multi-word like "PolicyGroups" -> "policy-groups"
+				// Convert PascalCase to kebab-case: "PolicyGroups" -> "policy-groups"
+				var parts []string
+				start := 0
 				for i := 1; i < len(rt); i++ {
 					if rt[i] >= 'A' && rt[i] <= 'Z' {
-						resourceType = strings.ToLower(rt[:i]) + "-" + strings.ToLower(rt[i:])
+						parts = append(parts, strings.ToLower(rt[start:i]))
+						start = i
 					}
 				}
+				parts = append(parts, strings.ToLower(rt[start:]))
+				resourceType = strings.Join(parts, "-")
 			}
 
 			//Make request to the API
@@ -605,6 +608,7 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 		}
 
 		resBody, err := io.ReadAll(res.Body)
+		res.Body.Close()
 		checkErr(err)
 
 		if verbose {
@@ -831,7 +835,11 @@ func parseData(response *gabs.Container) *gabs.Container {
 	included := gabs.New()
 
 	for _, include := range response.Path("included").Children() {
-		included.Set(include.Data(), include.Path("type").Data().(string)+"-"+include.Path("id").Data().(string))
+		typeVal, _ := include.Path("type").Data().(string)
+		idVal, _ := include.Path("id").Data().(string)
+		if typeVal != "" && idVal != "" {
+			included.Set(include.Data(), typeVal+"-"+idVal)
+		}
 	}
 
 	for _, value := range response.Path("data").Children() {
@@ -862,7 +870,12 @@ func parseData(response *gabs.Container) *gabs.Container {
 			//TODO: Should probably move this outside of the loop for performance reason, but will make code less readable
 			var connectRelationship = func(rel *gabs.Container) *gabs.Container {
 
-				relId := rel.Path("type").Data().(string) + "-" + rel.Path("id").Data().(string)
+				relType, _ := rel.Path("type").Data().(string)
+				relIdVal, _ := rel.Path("id").Data().(string)
+				if relType == "" || relIdVal == "" {
+					return rel
+				}
+				relId := relType + "-" + relIdVal
 
 				if included.Exists(relId) {
 

@@ -117,10 +117,10 @@ func fetchRunStatus(runID string) (string, *gabs.Container) {
 		fmt.Fprintf(os.Stderr, "Error: Request failed: %s\n", err)
 		os.Exit(ExitTransientError)
 	}
+	defer res.Body.Close()
 
 	resBody, err := io.ReadAll(res.Body)
 	checkErr(err)
-	res.Body.Close()
 
 	if res.StatusCode >= 300 {
 		showError(resBody, res.StatusCode)
@@ -140,7 +140,7 @@ func fetchRunStatus(runID string) (string, *gabs.Container) {
 
 	status := ""
 	if item.Exists("status") {
-		status = item.Path("status").Data().(string)
+		status, _ = item.Path("status").Data().(string)
 	}
 
 	return status, item

@@ -72,17 +72,18 @@ Short names for the commands you type most. Full names still work.
 
 | Alias | Expands to |
 |-------|-----------|
-| `ws` | `list-workspaces` |
+| `ws` | `get-workspaces` |
 | `envs` | `list-environments` |
-| `runs` | `list-runs` |
-| `vars` | `list-variables` |
+| `runs` | `get-runs` |
+| `vars` | `get-variables` |
 | `tags` | `list-tags` |
-| `accs` | `list-accounts` |
+| `accs` | `get-accounts` |
 | `pols` | `list-policy-groups` |
-| `sa` | `list-service-accounts` |
-| `teams` | `list-teams` |
-| `users` | `list-users` |
+| `sa` | `get-service-accounts` |
+| `teams` | `get-teams` |
+| `users` | `get-users` |
 | `vcs` | `list-vcs-providers` |
+| `mods` | `list-modules` |
 
 ```
 $ scalr ws                    # same as: scalr list-workspaces

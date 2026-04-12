@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -55,7 +56,9 @@ func resolveNameToID(flagName string, value string) string {
 	}
 
 	// Query the list endpoint with a name filter
-	apiURL := "https://" + ScalrHostname + BasePath + endpoint + "?filter[name]=" + value + "&page[size]=10"
+	params := url.Values{}
+	params.Set("filter[name]", value)
+	params.Set("page[size]", "10")
 
 	// For workspaces and some resources, also need account filter
 	if ScalrAccount != "" && (strings.Contains(endpoint, "/workspaces") ||
@@ -63,8 +66,10 @@ func resolveNameToID(flagName string, value string) string {
 		strings.Contains(endpoint, "/tags") ||
 		strings.Contains(endpoint, "/roles") ||
 		strings.Contains(endpoint, "/teams")) {
-		apiURL += "&filter[account]=" + ScalrAccount
+		params.Set("filter[account]", ScalrAccount)
 	}
+
+	apiURL := "https://" + ScalrHostname + BasePath + endpoint + "?" + params.Encode()
 
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
@@ -80,8 +85,8 @@ func resolveNameToID(flagName string, value string) string {
 		return value
 	}
 
+	defer res.Body.Close()
 	resBody, err := io.ReadAll(res.Body)
-	res.Body.Close()
 	if err != nil {
 		return value
 	}

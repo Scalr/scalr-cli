@@ -50,7 +50,7 @@ func isTerminal() bool {
 // Table/CSV output requires an explicit -format=table or -format=csv flag.
 func resolveFormat(format string) string {
 	if format != "" {
-		return format
+		return strings.ToLower(strings.TrimSpace(format))
 	}
 	return "json"
 }
@@ -61,7 +61,7 @@ func resolveFormat(format string) string {
 // columns is the user-specified column list (empty means auto-detect).
 // resourceType is used to look up default columns.
 func formatOutput(data *gabs.Container, format string, isArray bool, columns string, resourceType string) {
-	switch strings.TrimSpace(format) {
+	switch format {
 	case "table":
 		if isArray {
 			formatTable(data, columns, resourceType)
@@ -174,7 +174,7 @@ func formatCSV(data *gabs.Container, columns string, resourceType string, isArra
 
 		w.Write([]string{"field", "value"})
 		for _, k := range keys {
-			w.Write([]string{k, formatScalar(flat[k])})
+			w.Write([]string{k, sanitizeCSV(formatScalar(flat[k]))})
 		}
 		return
 	}
@@ -196,7 +196,7 @@ func formatCSV(data *gabs.Container, columns string, resourceType string, isArra
 	for _, item := range children {
 		row := make([]string, len(cols))
 		for i, col := range cols {
-			row[i] = extractValue(item, col)
+			row[i] = sanitizeCSV(extractValue(item, col))
 		}
 		w.Write(row)
 	}
@@ -352,6 +352,19 @@ func formatScalar(v *gabs.Container) string {
 	}
 }
 
+// sanitizeCSV prevents spreadsheet formula injection by prefixing dangerous
+// starting characters with a single quote. Spreadsheet programs interpret
+// cells starting with =, +, -, @ as formulas.
+func sanitizeCSV(val string) string {
+	if len(val) > 0 {
+		switch val[0] {
+		case '=', '+', '-', '@':
+			return "'" + val
+		}
+	}
+	return val
+}
+
 // containsString checks if a string slice contains a value.
 func containsString(slice []string, val string) bool {
 	for _, s := range slice {
@@ -397,7 +410,7 @@ func filterSingleObject(item *gabs.Container, fields []string) *gabs.Container {
 
 // formatPaginationInfo prints pagination metadata to stderr (only in table mode).
 func formatPaginationInfo(currentPage int, totalPages interface{}, totalCount interface{}) {
-	if !isTerminal() {
+	if !term.IsTerminal(int(os.Stderr.Fd())) {
 		return
 	}
 
