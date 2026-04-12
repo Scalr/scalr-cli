@@ -671,7 +671,7 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 		}
 
 		for _, data := range newItems.Children() {
-			output.ArrayAppend(data)
+			output.ArrayAppend(data.Data())
 		}
 
 		// Save pagination metadata for display
