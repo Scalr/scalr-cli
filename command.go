@@ -117,7 +117,7 @@ func parseCommand(format string, verbose bool, quiet bool, columns string, field
 				}
 
 				//TODO: If code reaches here, means support for new field-type is needed!
-				fmt.Println("IGNORE UNSUPPORTED FIELD. PLEASE LET THE MAINTAINER KNOW!", parameter.Value.Name, parameter.Value.Schema.Value.Type)
+				fmt.Fprintln(os.Stderr, "Warning: Unsupported field type, please report this issue:", parameter.Value.Name, parameter.Value.Schema.Value.Type)
 
 			}
 
@@ -428,7 +428,7 @@ func parseCommand(format string, verbose bool, quiet bool, columns string, field
 
 								default:
 									//TODO: If code reaches here, means we need to add support for more field types!
-									fmt.Println("IGNORE UNSUPPORTED FIELD", name, attribute.Value.Type)
+									fmt.Fprintln(os.Stderr, "Warning: Unsupported field type:", name, attribute.Value.Type)
 								}
 
 							}
@@ -614,18 +614,27 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 			showError(resBody, res.StatusCode)
 		}
 
-		//Empty response, quit early
+		//Empty response (e.g. 204 No Content from DELETE), quit early
 		if len(resBody) == 0 {
+			if !quiet && isTerminal() {
+				fmt.Fprintln(os.Stderr, "Done.")
+			}
 			return
 		}
 
-		//If not a JSON:API response, just rend it raw
-		if res.Header.Get("content-type") != "application/vnd.api+json" {
+		//If not a JSON:API response, just render it raw
+		//These responses don't follow the data/attributes structure so they
+		//bypass table/csv formatting — but we still pretty-print valid JSON.
+		if !strings.HasPrefix(res.Header.Get("content-type"), "application/vnd.api+json") {
 			if !quiet {
-				fmt.Println(string(resBody))
+				if parsed, err := gabs.ParseJSON(resBody); err == nil {
+					fmt.Println(parsed.StringIndent("", "  "))
+				} else {
+					fmt.Println(string(resBody))
+				}
 			}
 
-			if uri == "/service-accounts/assume" && res.Header.Get("content-type") == "application/json" {
+			if uri == "/service-accounts/assume" && strings.HasPrefix(res.Header.Get("content-type"), "application/json") {
 				response, err := gabs.ParseJSON(resBody)
 				checkErr(err)
 
@@ -695,10 +704,10 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 			isEmpty = true
 		}
 		if isEmpty {
-			if format == "json" || format == "" {
+			if format == "json" {
 				fmt.Println("[]")
 			} else {
-				fmt.Println("No results found.")
+				fmt.Fprintln(os.Stderr, "No results found.")
 			}
 		} else {
 			if fields != "" {

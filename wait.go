@@ -123,7 +123,7 @@ func fetchRunStatus(runID string) (string, *gabs.Container) {
 	res.Body.Close()
 
 	if res.StatusCode >= 300 {
-		showError(resBody)
+		showError(resBody, res.StatusCode)
 	}
 
 	response, err := gabs.ParseJSON(resBody)

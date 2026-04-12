@@ -82,13 +82,13 @@ func formatOutput(data *gabs.Container, format string, isArray bool, columns str
 func formatTable(data *gabs.Container, columns string, resourceType string) {
 	children := data.Children()
 	if len(children) == 0 {
-		fmt.Println("No results found.")
+		fmt.Fprintln(os.Stderr, "No results found.")
 		return
 	}
 
 	cols := resolveColumns(children[0], columns, resourceType)
 	if len(cols) == 0 {
-		fmt.Println("No displayable columns found.")
+		fmt.Fprintln(os.Stderr, "No displayable columns found.")
 		return
 	}
 
@@ -124,7 +124,13 @@ func formatTable(data *gabs.Container, columns string, resourceType string) {
 func formatKeyValue(data *gabs.Container) {
 	flat := data.ChildrenMap()
 	if len(flat) == 0 {
-		fmt.Println("No data.")
+		// This should not happen for successful API responses — the empty-result
+		// check in callAPI should catch it first. If we get here, print the raw
+		// container so the user at least sees something instead of a confusing message.
+		raw := data.StringIndent("", "  ")
+		if raw != "{}" && raw != "null" && raw != "" {
+			fmt.Println(raw)
+		}
 		return
 	}
 

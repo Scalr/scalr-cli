@@ -140,7 +140,7 @@ func main() {
 			return
 		}
 
-		fmt.Print("\n", "Not configured! Please run 'scalr -configure' or set environment variables SCALR_HOSTNAME and SCALR_TOKEN", "\n\n")
+		fmt.Fprint(os.Stderr, "\n", "Not configured! Please run 'scalr -configure' or set environment variables SCALR_HOSTNAME and SCALR_TOKEN", "\n\n")
 		return
 	}
 
