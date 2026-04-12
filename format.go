@@ -88,7 +88,11 @@ func formatTable(data *gabs.Container, columns string, resourceType string) {
 
 	cols := resolveColumns(children[0], columns, resourceType)
 	if len(cols) == 0 {
-		fmt.Fprintln(os.Stderr, "No displayable columns found.")
+		// This should never happen after the autoDetectColumns fallback,
+		// but if it does, fall back to JSON so the user at least sees their data.
+		for _, item := range children {
+			fmt.Println(item.StringIndent("", "  "))
+		}
 		return
 	}
 
@@ -203,6 +207,18 @@ func resolveColumns(firstItem *gabs.Container, columns string, resourceType stri
 		return strings.Split(columns, ",")
 	}
 
+	// Try to get resource type from the item's "type" field (JSONAPI standard, always plural)
+	// This is more reliable than the x-resource extension which may be singular/PascalCase.
+	if firstItem.Exists("type") {
+		if typeVal, ok := firstItem.Path("type").Data().(string); ok && typeVal != "" {
+			resourceType = typeVal
+		} else if typeContainer, ok := firstItem.Path("type").Data().(*gabs.Container); ok {
+			if s, ok := typeContainer.Data().(string); ok && s != "" {
+				resourceType = s
+			}
+		}
+	}
+
 	if resourceType != "" {
 		if cols, ok := defaultColumns[resourceType]; ok {
 			// Filter to only columns that actually exist in the data
@@ -223,6 +239,7 @@ func resolveColumns(firstItem *gabs.Container, columns string, resourceType stri
 }
 
 // autoDetectColumns picks a reasonable set of columns from the first item.
+// Always returns at least something — falls back to all keys if filtering is too aggressive.
 func autoDetectColumns(item *gabs.Container) []string {
 	preferred := []string{"id", "name", "type", "status", "key", "email"}
 	flat := item.ChildrenMap()
@@ -234,29 +251,41 @@ func autoDetectColumns(item *gabs.Container) []string {
 		}
 	}
 
-	// If we still have room, add more keys (up to 6 total), skipping nested objects
-	if len(cols) < 6 {
-		remaining := make([]string, 0)
-		for k, v := range flat {
-			if containsString(cols, k) {
-				continue
-			}
-			// Skip nested objects/arrays — they don't render well in tables
-			if _, isMap := v.Data().(map[string]interface{}); isMap {
-				continue
-			}
-			if _, isArr := v.Data().([]interface{}); isArr {
-				continue
-			}
-			remaining = append(remaining, k)
+	// Collect remaining scalar keys (skip nested objects/arrays)
+	remaining := make([]string, 0)
+	for k, v := range flat {
+		if containsString(cols, k) {
+			continue
 		}
-		sort.Strings(remaining)
-		for _, r := range remaining {
-			if len(cols) >= 6 {
-				break
-			}
-			cols = append(cols, r)
+		// Skip nested objects/arrays — they don't render well in tables
+		if _, isMap := v.Data().(map[string]interface{}); isMap {
+			continue
 		}
+		if _, isArr := v.Data().([]interface{}); isArr {
+			continue
+		}
+		remaining = append(remaining, k)
+	}
+	sort.Strings(remaining)
+	for _, r := range remaining {
+		if len(cols) >= 6 {
+			break
+		}
+		cols = append(cols, r)
+	}
+
+	// Fallback: if aggressive filtering removed everything, include ALL keys
+	// (even nested ones) so the user sees something rather than "No displayable columns"
+	if len(cols) == 0 {
+		allKeys := make([]string, 0, len(flat))
+		for k := range flat {
+			allKeys = append(allKeys, k)
+		}
+		sort.Strings(allKeys)
+		if len(allKeys) > 6 {
+			allKeys = allKeys[:6]
+		}
+		return allKeys
 	}
 
 	return cols
