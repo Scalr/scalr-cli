@@ -908,7 +908,7 @@ func parseData(response *gabs.Container) *gabs.Container {
 
 		}
 
-		output.ArrayAppend(sub)
+		output.ArrayAppend(sub.Data())
 
 	}
 
