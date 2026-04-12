@@ -88,11 +88,15 @@ func formatTable(data *gabs.Container, columns string, resourceType string) {
 
 	cols := resolveColumns(children[0], columns, resourceType)
 	if len(cols) == 0 {
-		// This should never happen after the autoDetectColumns fallback,
-		// but if it does, fall back to JSON so the user at least sees their data.
-		for _, item := range children {
-			fmt.Println(item.StringIndent("", "  "))
+		// Last resort: show all keys from the first item, no filtering at all
+		for k := range children[0].ChildrenMap() {
+			cols = append(cols, k)
 		}
+		sort.Strings(cols)
+	}
+	if len(cols) == 0 {
+		// Truly empty object — nothing to display
+		fmt.Fprintln(os.Stderr, "No results found.")
 		return
 	}
 

@@ -727,8 +727,9 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 			}
 		}
 
-		// Show pagination info in table/csv mode
-		if (format == "table" || format == "csv") && lastPaginationMeta != nil {
+		// Show pagination info in table/csv mode (only when format is explicitly non-JSON
+		// and -query is not used, since query mode has its own output)
+		if (format == "table" || format == "csv") && queryExpr == "" && lastPaginationMeta != nil && !isEmpty {
 			totalPages := lastPaginationMeta.Path("total-pages").Data()
 			totalCount := lastPaginationMeta.Path("total-count").Data()
 			currentPage := startPage
