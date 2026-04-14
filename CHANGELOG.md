@@ -158,6 +158,25 @@ Simple scalar values print as plain text (one per line). Complex values print as
 
 ---
 
+### Open in Browser
+
+Jump straight to the Scalr dashboard for any resource from the terminal.
+
+```
+$ scalr open account                          # account dashboard
+$ scalr open environment production           # environment by name
+$ scalr open workspace my-workspace           # workspace by name
+$ scalr open run run-abc123                   # specific run
+```
+
+Short aliases work too: `scalr open env production`, `scalr open ws my-workspace`.
+
+For workspaces and runs, the CLI automatically resolves parent IDs (workspace's environment, run's workspace and environment) so you only need to provide the resource itself. The URL is always printed to stderr so you can see it even in headless environments.
+
+Works cross-platform: uses `open` on macOS, `xdg-open` on Linux, and `rundll32` on Windows.
+
+---
+
 ### Wait for Run Completion
 
 The most-requested feature for CI/CD pipelines. Instead of writing a shell loop that polls and parses JSON, use one command.
@@ -310,7 +329,7 @@ ANSI colors are automatically disabled when `CI` or `NO_COLOR` environment varia
 
 | Flag | Description |
 |------|-------------|
-| `-format=STRING` | Output format: `json`, `table`, `csv` (auto-detects TTY) |
+| `-format=STRING` | Output format: `json` (default), `table`, `csv` |
 | `-columns=LIST` | Columns to show in table/csv (comma-separated) |
 | `-fields=LIST` | Fields to include in output, all formats (comma-separated) |
 | `-query=STRING` | Dot-path expression (`.name`, `.[].id`) |
@@ -324,3 +343,4 @@ ANSI colors are automatically disabled when `CI` or `NO_COLOR` environment varia
 | Command | Description |
 |---------|-------------|
 | `wait-for-run` | Poll a run until completion (flags: `-run`, `-timeout`) |
+| `open` | Open Scalr dashboard in browser (`open workspace <name>`, `open run <id>`, etc.) |
