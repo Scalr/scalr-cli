@@ -180,6 +180,27 @@ func main() {
 		return
 	}
 
+	// Handle "open" command — opens Scalr dashboard in browser
+	if flag.Arg(0) == "open" {
+		doc := loadAPI()
+		_ = doc
+
+		resourceType := flag.Arg(1)
+		identifier := flag.Arg(2)
+
+		if resourceType == "" {
+			fmt.Fprintln(os.Stderr, "Usage: scalr open <resource-type> [name-or-id]")
+			fmt.Fprintln(os.Stderr, "  scalr open account")
+			fmt.Fprintln(os.Stderr, "  scalr open environment <name-or-id>")
+			fmt.Fprintln(os.Stderr, "  scalr open workspace <name-or-id>")
+			fmt.Fprintln(os.Stderr, "  scalr open run <run-id>")
+			os.Exit(ExitError)
+		}
+
+		openResource(resourceType, identifier)
+		return
+	}
+
 	// Determine output format — JSON is always the default for backward compatibility.
 	actualFormat := resolveFormat(*format)
 

@@ -91,6 +91,7 @@ func autoCommands(allFlags map[string]map[string][]string, flags []string, prefi
 
 		// Add built-in commands
 		commands = append(commands, "wait-for-run ")
+		commands = append(commands, "open ")
 
 		listComplete(commands, prefix)
 	}
