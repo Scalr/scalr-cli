@@ -1,3 +1,10 @@
+//go:build integration
+// +build integration
+
+// Integration tests run against a live Scalr API.
+// Run with: go test -tags=integration ./...
+// Requires SCALR_TOKEN, SCALR_HOSTNAME, and SCALR_ACCOUNT environment variables.
+
 package main
 
 import (

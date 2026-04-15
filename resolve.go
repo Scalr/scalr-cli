@@ -12,8 +12,9 @@ import (
 	"github.com/Jeffail/gabs/v2"
 )
 
-// scalrIDPattern matches Scalr resource IDs like "ws-abc123", "env-def456", "run-ghi789"
-var scalrIDPattern = regexp.MustCompile(`^[a-z]+-[a-zA-Z0-9]+$`)
+// scalrIDPattern matches Scalr resource IDs like "ws-abc123", "env-def456",
+// "configuration-version-xyz" (multi-word prefix + alphanumeric suffix).
+var scalrIDPattern = regexp.MustCompile(`^[a-z]+(-[a-z]+)*-[a-zA-Z0-9]+$`)
 
 // resolvableResources maps flag names to API list endpoints with name filter support.
 // The value is the path to the list endpoint (relative to BasePath).

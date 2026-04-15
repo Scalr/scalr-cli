@@ -11,8 +11,10 @@ import (
 const (
 	defaultHTTPTimeout = 5 * time.Minute // generous timeout — some Scalr operations are slow
 	maxRetries         = 3
-	retryBaseDelay     = 1 * time.Second
 )
+
+// retryBaseDelay is a var (not const) so tests can reduce it to speed up retry tests.
+var retryBaseDelay = 1 * time.Second
 
 // scalrHTTPClient is an http.Client with a sensible timeout.
 // The timeout prevents scripts from hanging indefinitely on unresponsive servers.
