@@ -10,7 +10,7 @@ import (
 	"github.com/Jeffail/gabs/v2"
 )
 
-// Terminal states for Terraform runs — the run will not change without external action
+// Terminal states — the run is finished and will not change further.
 var terminalStates = map[string]bool{
 	"applied":              true,
 	"errored":              true,
@@ -20,14 +20,12 @@ var terminalStates = map[string]bool{
 	"force_canceled":       true,
 }
 
-// States that require human approval — the run is blocked waiting for input.
-// These are treated as terminal in CI contexts because no automation can proceed.
-var approvalStates = map[string]bool{
-	"policy_checked":          true, // Awaiting policy override approval
-	"policy_override":         true, // Policy override pending
-	"cost_estimated":          true, // Awaiting cost approval
-	"confirmed":               true, // Awaiting apply confirmation (when auto-apply is off)
-	"planned":                 true, // Plan complete, awaiting confirmation to apply
+// States that definitely block on human input regardless of run configuration.
+// A run sitting in these states will not progress without someone clicking approve.
+var blockedOnApprovalStates = map[string]bool{
+	"policy_checked":  true, // Soft-mandatory policy failed; needs override
+	"policy_override": true, // Override was requested; awaiting action
+	"cost_estimated":  true, // Cost estimate produced; awaiting approval (if gated)
 }
 
 // Success states (exit code 0)
@@ -82,12 +80,27 @@ func waitForRun(runID string, timeout time.Duration) {
 			}
 		}
 
-		// Detect states that require human approval — no point waiting in CI
-		if approvalStates[status] {
+		// Hard stop: states that definitely block on human input regardless of config
+		// (policy override or cost approval).
+		if blockedOnApprovalStates[status] {
 			fmt.Println(runData.StringIndent("", "  "))
-			fmt.Fprintf(os.Stderr, "Run %s requires approval (status: %s). Cannot proceed automatically.\n", runID, status)
+			fmt.Fprintf(os.Stderr, "Run %s is blocked waiting for approval (status: %s). Cannot proceed automatically.\n", runID, status)
 			os.Exit(ExitError)
 		}
+
+		// "planned" is ambiguous — the run auto-applies if auto-apply is on, otherwise
+		// it sits waiting for manual confirmation. Check the run's auto-apply flag.
+		// If auto-apply is off, the run is effectively blocked.
+		if status == "planned" {
+			autoApply, ok := runData.Path("auto-apply").Data().(bool)
+			if ok && !autoApply {
+				fmt.Println(runData.StringIndent("", "  "))
+				fmt.Fprintf(os.Stderr, "Run %s requires manual confirmation (auto-apply is disabled). Cannot proceed automatically.\n", runID)
+				os.Exit(ExitError)
+			}
+			// Otherwise keep polling — the run will transition to confirmed/applying shortly.
+		}
+		// "confirmed" is a brief transitional state on the way to applying; just keep polling.
 
 		time.Sleep(interval)
 
@@ -109,8 +122,7 @@ func fetchRunStatus(runID string) (string, *gabs.Container) {
 	req, err := http.NewRequest("GET", apiURL, nil)
 	checkErr(err)
 
-	req.Header.Set("User-Agent", "scalr-cli/"+versionCLI)
-	req.Header.Add("Authorization", "Bearer "+ScalrToken)
+	setScalrHeaders(req)
 
 	res, err := doWithRetry(req)
 	if err != nil {

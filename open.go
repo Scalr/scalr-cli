@@ -86,8 +86,7 @@ func fetchRelationshipID(apiPath string, relationshipName string) string {
 		os.Exit(ExitError)
 	}
 
-	req.Header.Set("User-Agent", "scalr-cli/"+versionCLI)
-	req.Header.Add("Authorization", "Bearer "+ScalrToken)
+	setScalrHeaders(req)
 
 	res, err := scalrHTTPClient.Do(req)
 	if err != nil {

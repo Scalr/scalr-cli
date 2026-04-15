@@ -23,6 +23,22 @@ const (
 	ExitTransientError = 3 // Transient error (5xx, network, timeout) — safe to retry
 )
 
+// OutputOptions controls how API responses are rendered to the user.
+type OutputOptions struct {
+	Format    string // "json" (default), "table", "csv"
+	Fields    string // comma-separated field list (filters output and controls table/csv column order)
+	Query     string // dot-path expression like ".name" or ".[].id"
+	Quiet     bool   // suppress all output (only exit code matters)
+	Verbose   bool   // print HTTP request/response to stderr
+}
+
+// PaginationOptions controls how list responses are paginated.
+// Zero values mean "default behavior" (fetch all pages at size 100).
+type PaginationOptions struct {
+	Page     int // specific page number; 0 means fetch all pages
+	PageSize int // items per page; 0 means use default (100)
+}
+
 type Parameter struct {
 	varType     string
 	orgName     string
@@ -34,8 +50,9 @@ type Parameter struct {
 }
 
 // Command aliases: short names for frequently used commands.
-// Targets are validated at startup against the actual OpenAPI spec —
-// use the exact operation ID (kebab-case) from `scalr -help`.
+// Targets must match an actual operation ID (kebab-case) from the OpenAPI spec.
+// If an alias target no longer exists, the CLI will report "Command not found"
+// after expanding the alias.
 var commandAliases = map[string]string{
 	"ws":    "get-workspaces",
 	"envs":  "list-environments",
@@ -59,13 +76,49 @@ func renameFlag(name string) string {
 	return name
 }
 
-func parseCommand(format string, verbose bool, quiet bool, columns string, fields string, pageSize int, pageNum int, queryExpr string) {
+// pascalToKebab converts PascalCase to kebab-case, handling consecutive capitals
+// as acronyms: "PolicyGroups" -> "policy-groups", "SSHKey" -> "ssh-key",
+// "VCSProvider" -> "vcs-provider".
+func pascalToKebab(s string) string {
+	if s == "" {
+		return ""
+	}
+	isUpper := func(c byte) bool { return c >= 'A' && c <= 'Z' }
+	isLower := func(c byte) bool { return c >= 'a' && c <= 'z' }
+
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		// Insert dash before an uppercase letter that starts a new word.
+		// A new word begins when the previous char is lowercase, OR when the next
+		// char is lowercase (end of acronym run: "SSHKey" — 'K' before 'e').
+		if i > 0 && isUpper(c) {
+			prevLower := isLower(s[i-1])
+			nextLower := i+1 < len(s) && isLower(s[i+1])
+			if prevLower || nextLower {
+				b.WriteByte('-')
+			}
+		}
+		if isUpper(c) {
+			b.WriteByte(c + ('a' - 'A'))
+		} else {
+			b.WriteByte(c)
+		}
+	}
+	return b.String()
+}
+
+func parseCommand(out OutputOptions, page PaginationOptions) {
 
 	doc := loadAPI()
 
 	command := flag.Arg(0)
 
-	// Resolve command aliases
+	// originalArg is what the user actually typed (possibly an alias).
+	// We need it later to find its position in os.Args for sub-flag parsing.
+	originalArg := command
+
+	// Resolve command aliases to the actual OpenAPI operation ID.
 	if target, ok := commandAliases[command]; ok {
 		command = target
 	}
@@ -213,10 +266,11 @@ func parseCommand(format string, verbose bool, quiet bool, columns string, field
 
 			}
 
-			//Find command possition in args
+			//Find command position in args — use originalArg, not resolved command,
+			//because aliases (e.g. "envs") appear in os.Args, not their target ("list-environments").
 			pos := 1
 			for index, arg := range os.Args {
-				if arg == command {
+				if arg == originalArg {
 					pos = index
 					break
 				}
@@ -472,25 +526,17 @@ func parseCommand(format string, verbose bool, quiet bool, columns string, field
 				ScalrHostname = host
 			}
 
-			// Detect resource type from the response type (used for table column defaults)
+			// Detect resource type from the x-resource extension (used for table column defaults).
+			// Used only as a fallback; formatTable prefers the "type" field from the actual response data.
 			resourceType := ""
 			if action.Extensions["x-resource"] != nil {
-				rt := action.Extensions["x-resource"].(string)
-				// Convert PascalCase to kebab-case: "PolicyGroups" -> "policy-groups"
-				var parts []string
-				start := 0
-				for i := 1; i < len(rt); i++ {
-					if rt[i] >= 'A' && rt[i] <= 'Z' {
-						parts = append(parts, strings.ToLower(rt[start:i]))
-						start = i
-					}
+				if rt, ok := action.Extensions["x-resource"].(string); ok {
+					resourceType = pascalToKebab(rt)
 				}
-				parts = append(parts, strings.ToLower(rt[start:]))
-				resourceType = strings.Join(parts, "-")
 			}
 
 			//Make request to the API
-			callAPI(method, uri, query, body, contentType, verbose, format, quiet, columns, fields, pageSize, pageNum, resourceType, queryExpr)
+			callAPI(method, uri, query, body, contentType, resourceType, out, page)
 
 			return
 		}
@@ -540,32 +586,32 @@ func isValidExternalHost(host string) bool {
 }
 
 // Make a request to the Scalr API
-func callAPI(method string, uri string, query url.Values, body string, contentType string, verbose bool, format string, quiet bool, columns string, fields string, pageSizeFlag int, pageNumFlag int, resourceType string, queryExpr string) {
+func callAPI(method string, uri string, query url.Values, body string, contentType string, resourceType string, out OutputOptions, pageOpts PaginationOptions) {
 
 	output := gabs.New()
 	output.Array()
 
 	// Pagination: use user-specified page size or default to 100
 	effectivePageSize := 100
-	if pageSizeFlag > 0 {
-		effectivePageSize = pageSizeFlag
+	if pageOpts.PageSize > 0 {
+		effectivePageSize = pageOpts.PageSize
 	}
 	query.Add("page[size]", strconv.Itoa(effectivePageSize))
 
 	// If -page is specified, only fetch that single page
-	singlePage := pageNumFlag > 0
+	singlePage := pageOpts.Page > 0
 	startPage := 1
 	if singlePage {
-		startPage = pageNumFlag
+		startPage = pageOpts.Page
 	}
 
 	var lastPaginationMeta *gabs.Container
 
-	for page := startPage; true; page++ {
+	for pageNum := startPage; true; pageNum++ {
 
-		query.Set("page[number]", strconv.Itoa(page))
+		query.Set("page[number]", strconv.Itoa(pageNum))
 
-		if verbose {
+		if out.Verbose {
 			fmt.Fprintln(os.Stderr, method, "https://"+ScalrHostname+BasePath+uri+"?"+query.Encode())
 
 			if contentType != "" {
@@ -577,9 +623,9 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 
 		// Show spinner for non-verbose, non-quiet, TTY sessions
 		var stopSpinner func()
-		if !verbose && !quiet {
-			if page > 1 {
-				stopSpinner = paginationSpinner(page)
+		if !out.Verbose && !out.Quiet {
+			if pageNum > 1 {
+				stopSpinner = paginationSpinner(pageNum)
 			} else {
 				stopSpinner = startSpinner("")
 			}
@@ -588,11 +634,7 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 		req, err := http.NewRequest(method, "https://"+ScalrHostname+BasePath+uri+"?"+query.Encode(), strings.NewReader(body))
 		checkErr(err)
 
-		req.Header.Set("User-Agent", "scalr-cli/"+versionCLI)
-
-		if ScalrToken != "" {
-			req.Header.Add("Authorization", "Bearer "+ScalrToken)
-		}
+		setScalrHeaders(req)
 
 		if contentType != "" {
 			req.Header.Add("Content-Type", contentType)
@@ -611,7 +653,7 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 		res.Body.Close()
 		checkErr(err)
 
-		if verbose {
+		if out.Verbose {
 			//Show raw server response
 			fmt.Fprintln(os.Stderr, string(resBody))
 		}
@@ -622,7 +664,7 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 
 		//Empty response (e.g. 204 No Content from DELETE), quit early
 		if len(resBody) == 0 {
-			if !quiet && isTerminal() {
+			if !out.Quiet && isTerminal() {
 				fmt.Fprintln(os.Stderr, "Done.")
 			}
 			return
@@ -632,7 +674,7 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 		//These responses don't follow the data/attributes structure so they
 		//bypass table/csv formatting — but we still pretty-print valid JSON.
 		if !strings.HasPrefix(res.Header.Get("content-type"), "application/vnd.api+json") {
-			if !quiet {
+			if !out.Quiet {
 				if parsed, err := gabs.ParseJSON(resBody); err == nil {
 					fmt.Println(parsed.StringIndent("", "  "))
 				} else {
@@ -693,7 +735,7 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 
 	}
 
-	if !quiet {
+	if !out.Quiet {
 		// Detect whether output is a list or a single object.
 		// output starts as an empty array (gabs.Array()). For single-item
 		// responses it gets reassigned to the item itself (a map). For list
@@ -710,38 +752,38 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 			isEmpty = true
 		}
 		if isEmpty {
-			if format == "json" {
+			if out.Format == "json" {
 				fmt.Println("[]")
 			} else {
 				fmt.Fprintln(os.Stderr, "No results found.")
 			}
 		} else {
-			if fields != "" {
-				output = filterFields(output, fields, isArray)
+			if out.Fields != "" {
+				output = filterFields(output, out.Fields, isArray)
 			}
 
 			// Apply query expression if requested
-			if queryExpr != "" {
-				result, isSimple := applyQuery(output, queryExpr, isArray)
+			if out.Query != "" {
+				result, isSimple := applyQuery(output, out.Query, isArray)
 				formatQueryResult(result, isSimple)
 			} else {
 				// Format and display output
-				formatOutput(output, format, isArray, columns, resourceType)
+				formatOutput(output, out.Format, isArray, out.Fields, resourceType)
 			}
 		}
 
-		// Show pagination info in table/csv mode (only when format is explicitly non-JSON
-		// and -query is not used, since query mode has its own output)
-		if (format == "table" || format == "csv") && queryExpr == "" && lastPaginationMeta != nil && !isEmpty {
-			totalPages := lastPaginationMeta.Path("total-pages").Data()
+		// Show pagination summary in table/csv mode.
+		// When -page was used, show which page we fetched.
+		// When all pages were fetched (default), show only the total count —
+		// showing "page 5 of 5" is misleading since we displayed every page.
+		if (out.Format == "table" || out.Format == "csv") && out.Query == "" && lastPaginationMeta != nil && !isEmpty {
 			totalCount := lastPaginationMeta.Path("total-count").Data()
-			currentPage := startPage
-			if !singlePage && totalPages != nil {
-				if tp, ok := totalPages.(float64); ok {
-					currentPage = int(tp)
-				}
+			if singlePage {
+				totalPages := lastPaginationMeta.Path("total-pages").Data()
+				formatPaginationInfo(startPage, totalPages, totalCount)
+			} else if totalCount != nil {
+				formatTotalCount(totalCount)
 			}
-			formatPaginationInfo(currentPage, totalPages, totalCount)
 		}
 	}
 }

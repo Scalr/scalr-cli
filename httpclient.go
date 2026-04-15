@@ -22,6 +22,15 @@ var scalrHTTPClient = &http.Client{
 	Timeout: defaultHTTPTimeout,
 }
 
+// setScalrHeaders sets User-Agent and Authorization headers common to all
+// Scalr API requests. Mutates req in place.
+func setScalrHeaders(req *http.Request) {
+	req.Header.Set("User-Agent", "scalr-cli/"+versionCLI)
+	if ScalrToken != "" {
+		req.Header.Add("Authorization", "Bearer "+ScalrToken)
+	}
+}
+
 // doWithRetry executes an HTTP request with automatic retry for transient failures.
 // Retries on: 5xx status codes, network errors, and timeouts.
 // Does NOT retry on: 4xx (client errors), 3xx (redirects), or successful responses.

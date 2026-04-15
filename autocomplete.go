@@ -70,7 +70,7 @@ func listComplete(items []string, prefix string) {
 func autoBasic(flags []string) {
 
 	if flags[0] != "" && flags[0][:1] == "-" && len(flags) == 1 {
-		listComplete([]string{"-version ", "-help ", "-verbose ", "-configure ", "-update ", "-autocomplete ", "-format=", "-columns=", "-fields=", "-page=", "-page-size=", "-profile=", "-query=", "-quiet "}, flags[0])
+		listComplete([]string{"-version ", "-help ", "-verbose ", "-configure ", "-update ", "-autocomplete ", "-format=", "-fields=", "-page=", "-page-size=", "-profile=", "-query=", "-quiet "}, flags[0])
 	}
 }
 

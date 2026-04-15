@@ -78,8 +78,7 @@ func resolveNameToID(flagName string, value string) string {
 		return value
 	}
 
-	req.Header.Set("User-Agent", "scalr-cli/"+versionCLI)
-	req.Header.Add("Authorization", "Bearer "+ScalrToken)
+	setScalrHeaders(req)
 
 	res, err := scalrHTTPClient.Do(req)
 	if err != nil {

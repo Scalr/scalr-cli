@@ -9,6 +9,33 @@ func contains(s, substr string) bool {
 	return strings.Contains(s, substr)
 }
 
+func TestPascalToKebab(t *testing.T) {
+	tests := []struct {
+		in   string
+		want string
+	}{
+		{"", ""},
+		{"Workspace", "workspace"},
+		{"PolicyGroups", "policy-groups"},
+		{"AgentPoolVersions", "agent-pool-versions"},
+		{"SSHKey", "ssh-key"},
+		{"VCSProvider", "vcs-provider"},
+		{"AWSEventBridgeIntegration", "aws-event-bridge-integration"},
+		{"JSONAPIClient", "jsonapi-client"}, // JSONAPI is one acronym, then Client
+		{"A", "a"},
+		{"ABC", "abc"},
+		{"already-kebab", "already-kebab"},
+		{"environment", "environment"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.in, func(t *testing.T) {
+			if got := pascalToKebab(tt.in); got != tt.want {
+				t.Errorf("pascalToKebab(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestRenameFlag(t *testing.T) {
 	tests := []struct {
 		in   string

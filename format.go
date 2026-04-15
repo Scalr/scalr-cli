@@ -12,7 +12,7 @@ import (
 	"golang.org/x/term"
 )
 
-// Default columns to display per resource type when no -columns flag is specified.
+// Default columns to display per resource type when no -fields flag is specified.
 // Resources not listed here fall back to generic column detection.
 var defaultColumns = map[string][]string{
 	"workspaces":               {"id", "name", "status", "terraform-version", "auto-apply", "execution-mode"},
@@ -58,18 +58,19 @@ func resolveFormat(format string) string {
 // formatOutput dispatches to the appropriate formatter based on the format string.
 // data is the parsed JSONAPI output (either a single object or array).
 // isArray indicates whether the response is a list of items.
-// columns is the user-specified column list (empty means auto-detect).
-// resourceType is used to look up default columns.
-func formatOutput(data *gabs.Container, format string, isArray bool, columns string, resourceType string) {
+// fields is the user-specified field list (empty means auto-detect); used as
+// column set and order for table/csv formats.
+// resourceType is used to look up default columns when fields is empty.
+func formatOutput(data *gabs.Container, format string, isArray bool, fields string, resourceType string) {
 	switch format {
 	case "table":
 		if isArray {
-			formatTable(data, columns, resourceType)
+			formatTable(data, fields, resourceType)
 		} else {
 			formatKeyValue(data)
 		}
 	case "csv":
-		formatCSV(data, columns, resourceType, isArray)
+		formatCSV(data, fields, resourceType, isArray)
 	default:
 		// JSON (default)
 		fmt.Println(data.StringIndent("", "  "))
@@ -77,14 +78,14 @@ func formatOutput(data *gabs.Container, format string, isArray bool, columns str
 }
 
 // formatTable renders a list of items as an aligned table.
-func formatTable(data *gabs.Container, columns string, resourceType string) {
+func formatTable(data *gabs.Container, fields string, resourceType string) {
 	children := data.Children()
 	if len(children) == 0 {
 		fmt.Fprintln(os.Stderr, "No results found.")
 		return
 	}
 
-	cols := resolveColumns(children[0], columns, resourceType)
+	cols := resolveColumns(children[0], fields, resourceType)
 	if len(cols) == 0 {
 		// Last resort: show all keys from the first item, no filtering at all
 		for k := range children[0].ChildrenMap() {
@@ -159,7 +160,7 @@ func formatKeyValue(data *gabs.Container) {
 }
 
 // formatCSV renders data as RFC 4180 CSV.
-func formatCSV(data *gabs.Container, columns string, resourceType string, isArray bool) {
+func formatCSV(data *gabs.Container, fields string, resourceType string, isArray bool) {
 	w := csv.NewWriter(os.Stdout)
 	defer w.Flush()
 
@@ -184,7 +185,7 @@ func formatCSV(data *gabs.Container, columns string, resourceType string, isArra
 		return
 	}
 
-	cols := resolveColumns(children[0], columns, resourceType)
+	cols := resolveColumns(children[0], fields, resourceType)
 	if len(cols) == 0 {
 		return
 	}
@@ -202,11 +203,18 @@ func formatCSV(data *gabs.Container, columns string, resourceType string, isArra
 	}
 }
 
-// resolveColumns determines which columns to display.
-// Priority: explicit -columns flag > resource-type defaults > auto-detect from first item.
-func resolveColumns(firstItem *gabs.Container, columns string, resourceType string) []string {
-	if columns != "" {
-		return strings.Split(columns, ",")
+// resolveColumns determines which columns to display in table/CSV output.
+// Priority:
+//  1. explicit -fields flag (user-provided list, preserves order)
+//  2. resource-type defaults from defaultColumns map
+//  3. auto-detect from first item
+func resolveColumns(firstItem *gabs.Container, fields string, resourceType string) []string {
+	if fields != "" {
+		parts := strings.Split(fields, ",")
+		for i := range parts {
+			parts[i] = strings.TrimSpace(parts[i])
+		}
+		return parts
 	}
 
 	// Try to get resource type from the item's "type" field (JSONAPI standard, always plural)
@@ -408,7 +416,8 @@ func filterSingleObject(item *gabs.Container, fields []string) *gabs.Container {
 	return result
 }
 
-// formatPaginationInfo prints pagination metadata to stderr (only in table mode).
+// formatPaginationInfo prints pagination metadata to stderr (only in TTY).
+// Used when a specific page was requested via -page.
 func formatPaginationInfo(currentPage int, totalPages interface{}, totalCount interface{}) {
 	if !term.IsTerminal(int(os.Stderr.Fd())) {
 		return
@@ -424,4 +433,13 @@ func formatPaginationInfo(currentPage int, totalPages interface{}, totalCount in
 	if len(parts) > 0 {
 		fmt.Fprintf(os.Stderr, "(%s)\n", strings.Join(parts, ", "))
 	}
+}
+
+// formatTotalCount prints just the total count — used when all pages were fetched.
+// Showing "page N of N" in that case is misleading since every page was displayed.
+func formatTotalCount(totalCount interface{}) {
+	if !term.IsTerminal(int(os.Stderr.Fd())) {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "(%v total)\n", totalCount)
 }

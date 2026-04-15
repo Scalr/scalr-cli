@@ -2,59 +2,55 @@
 
 ## v0.next — UX & Scripting Overhaul
 
-This release transforms the Scalr CLI from a raw API wrapper into a productivity tool for both interactive use and CI/CD automation. Every change is backward compatible — existing scripts that parse JSON output continue to work unchanged.
+This release adds output formatting, better errors, CI/CD-friendly defaults, and a `wait-for-run` command — without breaking any existing usage. JSON remains the default output format and exit code 1 still covers all error cases.
+
+> **Note on flag order:** Global flags (`-format`, `-fields`, `-page`, etc.) must appear **before** the operation name. This matches Go's `flag` package convention. Sub-flags specific to an operation come **after** it.
+>
+> Correct: `scalr -format=table get-workspaces`
+> Wrong:   `scalr get-workspaces -format=table`
 
 ---
 
-### Table Output (auto-detected)
+### Table Output
 
-Use `-format=table` to get aligned, scannable output. JSON remains the default for full backward compatibility — existing scripts are not affected.
+Use `-format=table` for aligned, scannable output in your terminal. JSON stays the default, so scripts parsing stdout continue to work unchanged.
 
 ```
-$ scalr -format=table list-workspaces
-ID            NAME           STATUS     TERRAFORM-VERSION  AUTO-APPLY  EXECUTION-MODE
-----------    -----------    --------   -----------------  ----------  --------------
-ws-abc123     production     applied    1.7.0              true        remote
-ws-def456     staging        planned    1.7.0              false       remote
-ws-ghi789     dev-sandbox    applied    1.6.6              true        local
-(page 1 of 1, 3 total)
+$ scalr -format=table get-workspaces
+ID                    NAME       ENVIRONMENT-ID         TERRAFORM-VERSION  AUTO-APPLY
+--                    ----       --------------         -----------------  ----------
+ws-v0p7nqiupjln2e1dv  ws-1       env-v0ord4r0sthdi9es5  1.7.5              false
+ws-v0p7ns9tcjerbbp3d  test       env-v0p7nr1375dh87uk4  1.7.5              true
+(4 total)
 
-$ scalr list-workspaces              # JSON by default — no breaking change
-[
-  { "id": "ws-abc123", "name": "production", ... },
-  ...
-]
+$ scalr get-workspaces                      # JSON by default — scripts unaffected
+[ { "id": "ws-v0p7nqiupjln2e1dv", ... } ]
 ```
 
-**Why this matters:** Scanning 50 workspaces in raw JSON required mental gymnastics. Tables let you find what you need at a glance.
+Why this matters: scanning dozens of workspaces as raw JSON is painful. Tables let you spot what you need at a glance.
 
 ---
 
 ### CSV Export
 
-Pipe your infrastructure inventory straight into spreadsheets or text-processing tools.
+```
+$ scalr -format=csv get-workspaces > workspaces.csv
+$ scalr -format=csv list-environments | cut -d',' -f1,2
+```
 
-```
-$ scalr list-workspaces -format=csv > workspaces.csv
-$ scalr list-environments -format=csv | cut -d',' -f1,2
-```
+CSV is RFC 4180-compliant and guards against spreadsheet formula injection — values starting with `=`, `+`, `-`, `@` are safely prefixed.
 
 ---
 
 ### Human-Readable Errors
 
-API errors used to dump raw JSONAPI objects. Now you get a single clear line.
+API errors used to dump raw JSONAPI objects. Now you get a single readable line.
 
 **Before:**
 ```json
 {
   "errors": [
-    {
-      "status": "422",
-      "title": "Unprocessable Entity",
-      "detail": "Name has already been taken",
-      "source": { "pointer": "/data/attributes/name" }
-    }
+    { "status": "422", "title": "Unprocessable Entity", "detail": "Name has already been taken", "source": { "pointer": "/data/attributes/name" } }
   ]
 }
 ```
@@ -68,7 +64,7 @@ Error: 422: Unprocessable Entity: Name has already been taken (field: /data/attr
 
 ### Command Aliases
 
-Short names for the commands you type most. Full names still work.
+Short names for frequently used commands. Full operation names still work.
 
 | Alias | Expands to |
 |-------|-----------|
@@ -86,73 +82,77 @@ Short names for the commands you type most. Full names still work.
 | `mods` | `list-modules` |
 
 ```
-$ scalr ws                    # same as: scalr list-workspaces
-$ scalr envs -format=csv      # same as: scalr list-environments -format=csv
+$ scalr ws                      # same as: scalr get-workspaces
+$ scalr -format=csv envs        # same as: scalr -format=csv list-environments
 ```
+
+The inconsistency between `get-*` and `list-*` prefixes reflects the underlying Scalr API spec — some list operations are named `get_<plural>`, others `list_<plural>`.
 
 ---
 
 ### Field Selection
 
-Only show the fields you care about. Works with all output formats.
+Only show the fields you care about. Works across all output formats and controls column order in table/CSV.
 
 ```
-$ scalr list-workspaces -fields=id,name,status
-ID          NAME          STATUS
---------    ----------    --------
-ws-abc123   production    applied
-ws-def456   staging       planned
+$ scalr -fields=id,name get-workspaces
+[
+  { "id": "ws-v0p7nqiupjln2e1dv", "name": "ws-1" },
+  { "id": "ws-v0p7ns9tcjerbbp3d", "name": "test" }
+]
 
-$ scalr get-workspace -workspace=ws-abc123 -fields=name,terraform-version -format=json
-{
-  "name": "production",
-  "terraform-version": "1.7.0"
-}
-```
+$ scalr -format=table -fields=id,name get-workspaces
+ID                    NAME
+--                    ----
+ws-v0p7nqiupjln2e1dv  ws-1
+ws-v0p7ns9tcjerbbp3d  test
 
----
-
-### Column Control for Tables
-
-Override which columns appear and their order.
-
-```
-$ scalr list-runs -columns=id,status,source,created-at
+$ scalr -fields=id,name get-workspace -workspace=test
+Resolved workspace 'test' -> ws-v0p7ns9tcjerbbp3d
+{ "id": "ws-v0p7ns9tcjerbbp3d", "name": "test" }
 ```
 
 ---
 
 ### Pagination Control
 
-The CLI used to silently fetch every page. Now you can browse page by page or control the batch size.
+The CLI still fetches all pages by default. Now you can also browse page-by-page or fetch a specific page for faster responses on large datasets.
 
 ```
-$ scalr list-workspaces -page=1 -page-size=5     # first 5 results
-$ scalr list-workspaces -page=2 -page-size=5     # next 5
+$ scalr -page=1 -page-size=5 get-workspaces     # first 5 results
+$ scalr -page=2 -page-size=5 get-workspaces     # next 5
 ```
 
-Default behavior (fetch all pages) is preserved when you don't set these flags.
+When all pages are fetched (default), a summary line goes to stderr:
+```
+(42 total)
+```
+
+When a specific page is requested, the summary includes page context:
+```
+(page 2 of 9, 42 total)
+```
 
 ---
 
 ### Dot-Path Queries
 
-Extract specific values without piping through `jq`.
+Extract specific values without piping to `jq`.
 
 ```
-$ scalr get-workspace -workspace=ws-abc123 -query=.name
-production
+$ scalr -query=.name get-workspace -workspace=ws-v0p7nqiupjln2e1dv
+ws-1
 
-$ scalr list-workspaces -query=.[].id
-ws-abc123
-ws-def456
-ws-ghi789
+$ scalr '-query=.[].id' get-workspaces
+ws-v0p7nqiupjln2e1dv
+ws-v0p7ns9tcjerbbp3d
 
-$ scalr list-workspaces -query=.[].name
-production
-staging
-dev-sandbox
+$ scalr '-query=.[].name' get-workspaces
+ws-1
+test
 ```
+
+> **Shell tip:** zsh treats `.[]` as a glob pattern. Quote the flag: `'-query=.[].id'`. Bash does not need the quotes.
 
 Simple scalar values print as plain text (one per line). Complex values print as JSON.
 
@@ -160,187 +160,198 @@ Simple scalar values print as plain text (one per line). Complex values print as
 
 ### Open in Browser
 
-Jump straight to the Scalr dashboard for any resource from the terminal.
+Jump straight to the Scalr dashboard from the terminal.
 
 ```
 $ scalr open account                          # account dashboard
-$ scalr open environment production           # environment by name
-$ scalr open workspace my-workspace           # workspace by name
-$ scalr open run run-abc123                   # specific run
+$ scalr open environment tfenv1               # environment by name
+$ scalr open workspace test                   # workspace by name
+$ scalr open run run-v0p7nx...                # specific run
 ```
 
-Short aliases work too: `scalr open env production`, `scalr open ws my-workspace`.
+Short aliases also work: `scalr open env tfenv1`, `scalr open ws test`.
 
-For workspaces and runs, the CLI automatically resolves parent IDs (workspace's environment, run's workspace and environment) so you only need to provide the resource itself. The URL is always printed to stderr so you can see it even in headless environments.
-
-Works cross-platform: uses `open` on macOS, `xdg-open` on Linux, and `rundll32` on Windows.
+For workspaces and runs the CLI resolves parent IDs automatically (workspace's environment, run's workspace and environment). The URL is printed to stderr so you see it even in headless environments. Uses `open` (macOS), `xdg-open` (Linux), `rundll32` (Windows).
 
 ---
 
 ### Wait for Run Completion
 
-The most-requested feature for CI/CD pipelines. Instead of writing a shell loop that polls and parses JSON, use one command.
+The most-requested feature for CI/CD pipelines. One command replaces the shell-loop + JSON-parse pattern.
 
 ```
-$ scalr wait-for-run -run=run-abc123
-Waiting for run run-abc123...
+$ scalr wait-for-run -run=run-v0p7nxxxx
+Waiting for run run-v0p7nxxxx...
 Status: pending
 pending -> planning
 planning -> planned
 planned -> applying
 applying -> applied
-Run run-abc123 completed successfully (applied)
+Run run-v0p7nxxxx completed successfully (applied)
 ```
 
-The command prints status transitions to stderr and the final run data to stdout. Exit code 0 on success, 1 on failure.
+Exit code 0 on success, 1 on failure. Final run data is printed to stdout.
 
-It also detects states that require human action (policy approval, cost review, apply confirmation) and exits immediately instead of hanging:
+The command detects states that **definitely** block on human input and exits immediately instead of polling forever:
+
+- `policy_checked` — soft-mandatory policy failed, needs override
+- `policy_override` — override requested, awaiting action
+- `cost_estimated` — cost estimate awaiting approval (when gated)
+- `planned` — only when the run has `auto-apply=false` (otherwise it continues polling through `confirmed` -> `applying`)
 
 ```
-$ scalr wait-for-run -run=run-def456
-Waiting for run run-def456...
+$ scalr wait-for-run -run=run-v0p7ndxxxx
+Waiting for run run-v0p7ndxxxx...
 Status: pending
 pending -> planning
 planning -> policy_checked
-Run run-def456 requires approval (status: policy_checked). Cannot proceed automatically.
+Run run-v0p7ndxxxx is blocked waiting for approval (status: policy_checked). Cannot proceed automatically.
 ```
 
-Set a custom timeout with `-timeout=10m` (default: 30 minutes).
+Custom timeout via `-timeout=10m` (default: 30 minutes).
 
----
-
-### Name-to-ID Resolution
-
-Stop looking up IDs before every command. Use names directly — the CLI resolves them for you.
-
-```
-$ scalr get-workspace -workspace=production
-Resolved workspace 'production' -> ws-abc123
-{ ... }
-
-$ scalr list-runs -workspace=staging
-Resolved workspace 'staging' -> ws-def456
-{ ... }
-```
-
-If the name matches multiple resources, you'll see the options:
-```
-Error: Multiple workspace resources match name 'test':
-  ws-abc123  test
-  ws-def456  test-2
-Please specify the exact ID.
-```
-
-Values that already look like IDs (e.g., `ws-abc123`) skip resolution entirely — zero overhead for existing usage.
-
-Supported resources: workspace, environment, account, tag, role, team, vcs-provider, agent-pool.
+Note: Detecting "requires approval" purely from run status is best-effort — the full answer depends on policy-check stages, cost estimation, auto-apply, and whether the run is plan-only. The detection covers the common cases.
 
 ---
 
 ### Configuration Profiles
 
-Manage multiple Scalr instances without juggling environment variables.
+Switch between Scalr instances (prod/staging/etc.) without juggling environment variables.
 
 ```
-$ scalr -configure                    # creates "default" profile (backward compatible)
-
-# Manually add profiles to ~/.scalr/scalr.conf:
+# ~/.scalr/scalr.conf
 {
   "default":  { "hostname": "prod.scalr.io",    "token": "...", "account": "acc-xxx" },
-  "staging":  { "hostname": "staging.scalr.io",  "token": "...", "account": "acc-yyy" }
+  "staging":  { "hostname": "staging.scalr.io", "token": "...", "account": "acc-yyy" }
 }
-
-$ scalr ws                            # uses "default"
-$ scalr ws -profile=staging           # uses "staging"
-$ SCALR_PROFILE=staging scalr ws      # same thing via env var
 ```
 
-Existing flat-format `scalr.conf` files continue to work without changes.
+```
+$ scalr ws                              # uses default
+$ scalr -profile=staging ws             # uses staging
+$ SCALR_PROFILE=staging scalr ws        # same via env var
+```
+
+Existing flat-format `scalr.conf` files (the pre-v0.next format) continue to work — they are treated as the `default` profile automatically.
 
 ---
 
 ### Progress Spinner
 
-A subtle spinner shows that the CLI is working during API calls. Automatically hidden when output is piped or stderr is not a terminal.
+A subtle spinner on stderr shows the CLI is working during API calls. Automatically hidden when output is piped or stderr is not a terminal.
 
 ```
-$ scalr list-workspaces
+$ scalr -format=table get-workspaces
 / Fetching page 2...
 ```
 
 ---
 
-### Scripting & CI/CD Improvements
+### Name-to-ID Resolution
 
-#### Structured Exit Codes
+Stop looking up IDs before every command. Pass names directly — the CLI resolves them automatically for path and query parameters.
 
-Scripts can now distinguish between error types for proper retry logic.
+```
+$ scalr get-workspace -workspace=test
+Resolved workspace 'test' -> ws-v0p7ns9tcjerbbp3d
+{ ... }
+```
+
+Multiple matches produce a clear error:
+```
+Error: Multiple workspace resources match name 'test':
+  ws-v0p7ns9tcjerbbp3d  test
+  ws-v0p7nt4lgen59ni26  test-2
+Please specify the exact ID.
+```
+
+Values that already look like a Scalr ID (e.g., `ws-v0p7xxx`) skip resolution entirely — zero overhead for existing scripts.
+
+Resolution is attempted for: workspace, environment, account, tag, role, team, vcs-provider, agent-pool.
+
+---
+
+## Scripting & CI/CD Improvements
+
+### Exit Codes
 
 | Code | Meaning | Action |
 |------|---------|--------|
 | **0** | Success | Continue |
-| **1** | Error (bad input, 4xx, missing flags, not found) | Fail the pipeline |
+| **1** | Any error (bad input, 4xx, missing flags, not found, approval required) | Fail the pipeline |
 | **3** | Transient error (5xx, network, timeout) | Retry safely |
 
-Exit code 1 is unchanged from previous versions — all non-transient errors. Exit code 3 is new and additive: scripts that check `!= 0` continue to work, while scripts that want smarter retry can check for 3 specifically.
+Exit code 3 is new and additive. Exit code 1 is unchanged — scripts that check `!= 0` continue to work. Scripts that want smarter retry can check for 3 specifically:
 
 ```bash
 scalr create-workspace -name=prod -environment-id=env-xxx
 rc=$?
 case $rc in
-  0) echo "Created" ;;
-  3) echo "Server issue, retrying..." && sleep 5 && retry ;;
-  *) echo "Failed" && exit 1 ;;
+  0) echo "created" ;;
+  3) echo "server issue, retrying..." && sleep 5 && retry ;;
+  *) echo "failed" && exit 1 ;;
 esac
 ```
 
-#### Automatic Retry for Server Errors
+### Automatic Retry
 
-API calls now retry automatically (up to 3 times with exponential backoff) on 5xx server errors and network failures. Client errors (4xx) fail immediately — no wasted time retrying bad requests.
+API calls now retry up to 3 times with exponential backoff (1s, 2s, 4s) on 5xx server errors and network failures. Client errors (4xx) fail immediately — no wasted time retrying bad requests.
 
-#### HTTP Request Timeout
+POST/PATCH/DELETE request bodies are correctly preserved across retries (previous versions re-sent empty bodies).
 
-All requests have a 30-second timeout. Scripts no longer hang indefinitely on unresponsive servers.
+### HTTP Request Timeout
 
-#### Clean stdout/stderr Separation
+Every request has a 5-minute timeout. Scripts no longer hang indefinitely on unresponsive servers, but long-running operations (large applies, policy checks) still have ample time to complete.
 
-All data output (JSON, table, CSV) goes to **stdout**. All diagnostics (errors, warnings, progress, resolution messages, verbose traces) go to **stderr**. This includes `-verbose` mode, which previously leaked HTTP debug info to stdout and broke JSON parsing.
+### Clean stdout / stderr Separation
+
+Data output (JSON, table, CSV, query results) goes to **stdout**. Everything else — errors, warnings, progress indicators, resolution messages, verbose traces — goes to **stderr**. Scripts parsing stdout as JSON now work even with `-verbose`:
 
 ```bash
-# This now works correctly — verbose debug goes to stderr, clean JSON to stdout:
-scalr list-workspaces -verbose 2>/dev/null | jq '.[0].name'
+scalr -verbose get-workspaces 2>/dev/null | jq '.[0].name'
 ```
 
-#### No-Color Mode
+### No-Color Mode
 
-ANSI colors are automatically disabled when `CI` or `NO_COLOR` environment variables are set (GitHub Actions, GitLab CI, etc.). Also available as `-no-color` flag.
+ANSI colors are disabled automatically when `NO_COLOR` (per [no-color.org](https://no-color.org)) or `CI` env vars are set. Works out of the box in GitHub Actions, GitLab CI, CircleCI, Jenkins, etc.
 
 ```yaml
-# GitHub Actions — colors disabled automatically
-- run: scalr list-workspaces
-
-# Or explicitly:
-- run: scalr list-workspaces -no-color
+# GitHub Actions — CI is set, colors are off automatically
+- run: scalr -format=table get-workspaces
 ```
 
 ---
 
-### Summary of New Flags
+## Summary of New Flags
+
+Global flags (must appear before the operation):
 
 | Flag | Description |
 |------|-------------|
 | `-format=STRING` | Output format: `json` (default), `table`, `csv` |
-| `-columns=LIST` | Columns to show in table/csv (comma-separated) |
-| `-fields=LIST` | Fields to include in output, all formats (comma-separated) |
-| `-query=STRING` | Dot-path expression (`.name`, `.[].id`) |
-| `-page=INT` | Fetch a specific page only |
+| `-fields=LIST` | Comma-separated field list (filters output and sets table/csv column order) |
+| `-query=STRING` | Dot-path expression like `.name` or `.[].id` |
+| `-page=INT` | Fetch a specific page only (default: fetch all) |
 | `-page-size=INT` | Items per page (default: 100) |
 | `-profile=STRING` | Named config profile from `scalr.conf` |
-| `-no-color` | Disable ANSI colors |
+| `-no-color` | Disable ANSI colors (also: `NO_COLOR` or `CI` env vars) |
 
-### New Commands
+## New Commands
 
 | Command | Description |
 |---------|-------------|
 | `wait-for-run` | Poll a run until completion (flags: `-run`, `-timeout`) |
 | `open` | Open Scalr dashboard in browser (`open workspace <name>`, `open run <id>`, etc.) |
+
+## Breaking Changes
+
+**None intended.** Every change is additive or restores correct behavior. Specifically preserved for backward compatibility:
+
+- JSON is still the default output format.
+- Exit code 1 is still returned for every error case the previous CLI returned 1 for.
+- Pagination still fetches all pages by default.
+- The old flat `scalr.conf` format is still supported.
+- All existing command names work unchanged.
+
+One genuine behavior change that could affect scripts reading stdout:
+- Error messages and `-verbose` output moved from stdout to stderr. This was a bug — errors and debug traces on stdout corrupted JSON parsing. If a script reads API error messages from stdout, it will need to read stderr now.

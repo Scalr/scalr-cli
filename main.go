@@ -61,7 +61,6 @@ func main() {
 	update := flag.Bool("update", false, "")
 	autocomplete := flag.Bool("autocomplete", false, "")
 	quiet := flag.Bool("quiet", false, "")
-	columns := flag.String("columns", "", "")
 	fields := flag.String("fields", "", "")
 	pageSize := flag.Int("page-size", 0, "")
 	pageNum := flag.Int("page", 0, "")
@@ -202,9 +201,19 @@ func main() {
 	}
 
 	// Determine output format — JSON is always the default for backward compatibility.
-	actualFormat := resolveFormat(*format)
+	out := OutputOptions{
+		Format:  resolveFormat(*format),
+		Fields:  *fields,
+		Query:   *queryExpr,
+		Quiet:   *quiet,
+		Verbose: *verbose,
+	}
+	page := PaginationOptions{
+		Page:     *pageNum,
+		PageSize: *pageSize,
+	}
 
-	parseCommand(actualFormat, *verbose, *quiet, *columns, *fields, *pageSize, *pageNum, *queryExpr)
+	parseCommand(out, page)
 }
 
 // Check for error and panic
