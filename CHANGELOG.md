@@ -1,6 +1,7 @@
 # Changelog
+[Unreleased]
 
-## v0.next — UX & Scripting Overhaul
+## [0.18.0] — UX & Scripting Overhaul
 
 This release adds output formatting, better errors, CI/CD-friendly defaults, and a `wait-for-run` command — without breaking any existing usage. JSON remains the default output format and exit code 1 still covers all error cases.
 
@@ -344,3 +345,6 @@ Global flags (must appear before the operation):
 
 One genuine behavior change that could affect scripts reading stdout:
 - Error messages and `-verbose` output moved from stdout to stderr. This was a bug — errors and debug traces on stdout corrupted JSON parsing. If a script reads API error messages from stdout, it will need to read stderr now.
+
+[Unreleased]: https://github.com/Scalr/scalr-cli/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/Scalr/scalr-cli/releases/tag/v0.18.0
