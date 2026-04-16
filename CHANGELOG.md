@@ -71,22 +71,11 @@ Short names for frequently used commands. Full operation names still work.
 | `ws` | `get-workspaces` |
 | `envs` | `list-environments` |
 | `runs` | `get-runs` |
-| `vars` | `get-variables` |
-| `tags` | `list-tags` |
-| `accs` | `get-accounts` |
-| `pols` | `list-policy-groups` |
-| `sa` | `get-service-accounts` |
-| `teams` | `get-teams` |
-| `users` | `get-users` |
-| `vcs` | `list-vcs-providers` |
-| `mods` | `list-modules` |
 
 ```
 $ scalr ws                      # same as: scalr get-workspaces
 $ scalr -format=csv envs        # same as: scalr -format=csv list-environments
 ```
-
-The inconsistency between `get-*` and `list-*` prefixes reflects the underlying Scalr API spec — some list operations are named `get_<plural>`, others `list_<plural>`.
 
 ---
 

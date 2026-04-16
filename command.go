@@ -54,18 +54,9 @@ type Parameter struct {
 // If an alias target no longer exists, the CLI will report "Command not found"
 // after expanding the alias.
 var commandAliases = map[string]string{
-	"ws":    "get-workspaces",
-	"envs":  "list-environments",
-	"runs":  "get-runs",
-	"vars":  "get-variables",
-	"tags":  "list-tags",
-	"accs":  "get-accounts",
-	"pols":  "list-policy-groups",
-	"sa":    "get-service-accounts",
-	"teams": "get-teams",
-	"users": "get-users",
-	"vcs":   "list-vcs-providers",
-	"mods":  "list-modules",
+	"ws":   "get-workspaces",
+	"envs": "list-environments",
+	"runs": "get-runs",
 }
 
 // Rename flags with odd names that causes issues in some shells
