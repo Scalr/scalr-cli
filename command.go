@@ -16,6 +16,29 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
+// Exit codes for scripting/CI use
+const (
+	ExitSuccess        = 0 // Command succeeded
+	ExitError          = 1 // Any error (bad input, 4xx, missing flags, not found, etc.)
+	ExitTransientError = 3 // Transient error (5xx, network, timeout) — safe to retry
+)
+
+// OutputOptions controls how API responses are rendered to the user.
+type OutputOptions struct {
+	Format    string // "json" (default), "table", "csv"
+	Fields    string // comma-separated field list (filters output and controls table/csv column order)
+	Query     string // dot-path expression like ".name" or ".[].id"
+	Quiet     bool   // suppress all output (only exit code matters)
+	Verbose   bool   // print HTTP request/response to stderr
+}
+
+// PaginationOptions controls how list responses are paginated.
+// Zero values mean "default behavior" (fetch all pages at size 100).
+type PaginationOptions struct {
+	Page     int // specific page number; 0 means fetch all pages
+	PageSize int // items per page; 0 means use default (100)
+}
+
 type Parameter struct {
 	varType     string
 	orgName     string
@@ -26,6 +49,16 @@ type Parameter struct {
 	value       *string
 }
 
+// Command aliases: short names for frequently used commands.
+// Targets must match an actual operation ID (kebab-case) from the OpenAPI spec.
+// If an alias target no longer exists, the CLI will report "Command not found"
+// after expanding the alias.
+var commandAliases = map[string]string{
+	"ws":   "get-workspaces",
+	"envs": "list-environments",
+	"runs": "get-runs",
+}
+
 // Rename flags with odd names that causes issues in some shells
 func renameFlag(name string) string {
 	name = strings.ReplaceAll(name, "[", "-")
@@ -34,11 +67,52 @@ func renameFlag(name string) string {
 	return name
 }
 
-func parseCommand(format string, verbose bool, quiet bool) {
+// pascalToKebab converts PascalCase to kebab-case, handling consecutive capitals
+// as acronyms: "PolicyGroups" -> "policy-groups", "SSHKey" -> "ssh-key",
+// "VCSProvider" -> "vcs-provider".
+func pascalToKebab(s string) string {
+	if s == "" {
+		return ""
+	}
+	isUpper := func(c byte) bool { return c >= 'A' && c <= 'Z' }
+	isLower := func(c byte) bool { return c >= 'a' && c <= 'z' }
+
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		// Insert dash before an uppercase letter that starts a new word.
+		// A new word begins when the previous char is lowercase, OR when the next
+		// char is lowercase (end of acronym run: "SSHKey" — 'K' before 'e').
+		if i > 0 && isUpper(c) {
+			prevLower := isLower(s[i-1])
+			nextLower := i+1 < len(s) && isLower(s[i+1])
+			if prevLower || nextLower {
+				b.WriteByte('-')
+			}
+		}
+		if isUpper(c) {
+			b.WriteByte(c + ('a' - 'A'))
+		} else {
+			b.WriteByte(c)
+		}
+	}
+	return b.String()
+}
+
+func parseCommand(out OutputOptions, page PaginationOptions) {
 
 	doc := loadAPI()
 
 	command := flag.Arg(0)
+
+	// originalArg is what the user actually typed (possibly an alias).
+	// We need it later to find its position in os.Args for sub-flag parsing.
+	originalArg := command
+
+	// Resolve command aliases to the actual OpenAPI operation ID.
+	if target, ok := commandAliases[command]; ok {
+		command = target
+	}
 
 	for uri, path := range doc.Paths.Map() {
 		for method, action := range path.Operations() {
@@ -89,7 +163,7 @@ func parseCommand(format string, verbose bool, quiet bool) {
 				}
 
 				//TODO: If code reaches here, means support for new field-type is needed!
-				fmt.Println("IGNORE UNSUPPORTED FIELD. PLEASE LET THE MAINTAINER KNOW!", parameter.Value.Name, parameter.Value.Schema.Value.Type)
+				fmt.Fprintln(os.Stderr, "Warning: Unsupported field type, please report this issue:", parameter.Value.Name, parameter.Value.Schema.Value.Type)
 
 			}
 
@@ -183,10 +257,11 @@ func parseCommand(format string, verbose bool, quiet bool) {
 
 			}
 
-			//Find command possition in args
+			//Find command position in args — use originalArg, not resolved command,
+			//because aliases (e.g. "envs") appear in os.Args, not their target ("list-environments").
 			pos := 1
 			for index, arg := range os.Args {
-				if arg == command {
+				if arg == originalArg {
 					pos = index
 					break
 				}
@@ -227,6 +302,11 @@ func parseCommand(format string, verbose bool, quiet bool) {
 					continue
 				}
 
+				// Attempt name-to-ID resolution for path/query parameters
+				if parameter.location == "path" || parameter.location == "query" {
+					*parameter.value = resolveNameToID(name, *parameter.value)
+				}
+
 				switch parameter.location {
 				case "query":
 					//This flag value should be sent as a query parameter
@@ -249,8 +329,8 @@ func parseCommand(format string, verbose bool, quiet bool) {
 					(stat.Mode()&os.ModeCharDevice == 0) && stat.Size() > 0 {
 
 					if len(missing) > 0 {
-						fmt.Printf("Missing required flag(s): %s\n", missing)
-						os.Exit(1)
+						fmt.Fprintf(os.Stderr, "Missing required flag(s): %s\n", missing)
+						os.Exit(ExitError)
 					}
 
 					var stdin []byte
@@ -268,13 +348,13 @@ func parseCommand(format string, verbose bool, quiet bool) {
 					// FIXME: Disable required attributes for PATCH requests as the specs are incorrect
 					if method != "PATCH" {
 						if len(missingBody) > 0 || len(missing) > 0 {
-							fmt.Printf("Missing required flag(s): %s\n", append(missing, missingBody...))
-							os.Exit(1)
+							fmt.Fprintf(os.Stderr, "Missing required flag(s): %s\n", append(missing, missingBody...))
+							os.Exit(ExitError)
 						}
 					} else {
 						if len(missing) > 0 {
-							fmt.Printf("Missing required flag(s): %s\n", missing)
-							os.Exit(1)
+							fmt.Fprintf(os.Stderr, "Missing required flag(s): %s\n", missing)
+							os.Exit(ExitError)
 						}
 					}
 
@@ -395,7 +475,7 @@ func parseCommand(format string, verbose bool, quiet bool) {
 
 								default:
 									//TODO: If code reaches here, means we need to add support for more field types!
-									fmt.Println("IGNORE UNSUPPORTED FIELD", name, attribute.Value.Type)
+									fmt.Fprintln(os.Stderr, "Warning: Unsupported field type:", name, attribute.Value.Type)
 								}
 
 							}
@@ -410,8 +490,8 @@ func parseCommand(format string, verbose bool, quiet bool) {
 
 			} else {
 				if len(missing) > 0 {
-					fmt.Printf("Missing required flag(s): %s\n", missing)
-					os.Exit(1)
+					fmt.Fprintf(os.Stderr, "Missing required flag(s): %s\n", missing)
+					os.Exit(ExitError)
 				}
 			}
 
@@ -422,31 +502,40 @@ func parseCommand(format string, verbose bool, quiet bool) {
 
 				parts := strings.Split(*email, "@")
 				if len(parts) != 2 || parts[1] == "" {
-					fmt.Println("Error: Invalid service account email format")
-					os.Exit(1)
+					fmt.Fprintln(os.Stderr, "Error: Invalid service account email format")
+					os.Exit(ExitError)
 				}
 
 				host := parts[1]
 
 				// Validate hostname to prevent SSRF attacks
 				if !isValidExternalHost(host) {
-					fmt.Printf("Error: Invalid hostname '%s' extracted from service account email\n", host)
-					os.Exit(1)
+					fmt.Fprintf(os.Stderr, "Error: Invalid hostname '%s' extracted from service account email\n", host)
+					os.Exit(ExitError)
 				}
 
 				ScalrHostname = host
 			}
 
+			// Detect resource type from the x-resource extension (used for table column defaults).
+			// Used only as a fallback; formatTable prefers the "type" field from the actual response data.
+			resourceType := ""
+			if action.Extensions["x-resource"] != nil {
+				if rt, ok := action.Extensions["x-resource"].(string); ok {
+					resourceType = pascalToKebab(rt)
+				}
+			}
+
 			//Make request to the API
-			callAPI(method, uri, query, body, contentType, verbose, format, quiet)
+			callAPI(method, uri, query, body, contentType, resourceType, out, page)
 
 			return
 		}
 	}
 
 	//Command not found
-	fmt.Printf("\nCommand '%s' not found. Use -help to list available commands.\n\n", command)
-	os.Exit(1)
+	fmt.Fprintf(os.Stderr, "\nCommand '%s' not found. Use -help to list available commands.\n\n", command)
+	os.Exit(ExitError)
 }
 
 // Helper function to shorter flag-names for convenience
@@ -488,67 +577,103 @@ func isValidExternalHost(host string) bool {
 }
 
 // Make a request to the Scalr API
-func callAPI(method string, uri string, query url.Values, body string, contentType string, verbose bool, format string, quiet bool) {
+func callAPI(method string, uri string, query url.Values, body string, contentType string, resourceType string, out OutputOptions, pageOpts PaginationOptions) {
 
 	output := gabs.New()
 	output.Array()
 
-	query.Add("page[size]", "100")
+	// Pagination: use user-specified page size or default to 100
+	effectivePageSize := 100
+	if pageOpts.PageSize > 0 {
+		effectivePageSize = pageOpts.PageSize
+	}
+	query.Add("page[size]", strconv.Itoa(effectivePageSize))
 
-	for page := 1; true; page++ {
+	// If -page is specified, only fetch that single page
+	singlePage := pageOpts.Page > 0
+	startPage := 1
+	if singlePage {
+		startPage = pageOpts.Page
+	}
 
-		query.Set("page[number]", strconv.Itoa(page))
+	var lastPaginationMeta *gabs.Container
 
-		if verbose {
-			fmt.Println(method, "https://"+ScalrHostname+BasePath+uri+"?"+query.Encode())
+	for pageNum := startPage; true; pageNum++ {
+
+		query.Set("page[number]", strconv.Itoa(pageNum))
+
+		if out.Verbose {
+			fmt.Fprintln(os.Stderr, method, "https://"+ScalrHostname+BasePath+uri+"?"+query.Encode())
 
 			if contentType != "" {
-				fmt.Println("Content-Type = " + contentType)
-				fmt.Println(body)
+				fmt.Fprintln(os.Stderr, "Content-Type = "+contentType)
+				fmt.Fprintln(os.Stderr, body)
 			}
 
+		}
+
+		// Show spinner for non-verbose, non-quiet, TTY sessions
+		var stopSpinner func()
+		if !out.Verbose && !out.Quiet {
+			if pageNum > 1 {
+				stopSpinner = paginationSpinner(pageNum)
+			} else {
+				stopSpinner = startSpinner("")
+			}
 		}
 
 		req, err := http.NewRequest(method, "https://"+ScalrHostname+BasePath+uri+"?"+query.Encode(), strings.NewReader(body))
 		checkErr(err)
 
-		req.Header.Set("User-Agent", "scalr-cli/"+versionCLI)
-
-		if ScalrToken != "" {
-			req.Header.Add("Authorization", "Bearer "+ScalrToken)
-		}
+		setScalrHeaders(req)
 
 		if contentType != "" {
 			req.Header.Add("Content-Type", contentType)
 		}
 
-		res, err := http.DefaultClient.Do(req)
-		checkErr(err)
+		res, err := doWithRetry(req)
+		if stopSpinner != nil {
+			stopSpinner()
+		}
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: Request failed: %s\n", err)
+			os.Exit(ExitTransientError)
+		}
 
 		resBody, err := io.ReadAll(res.Body)
+		res.Body.Close()
 		checkErr(err)
 
-		if verbose {
+		if out.Verbose {
 			//Show raw server response
-			fmt.Println(string(resBody))
+			fmt.Fprintln(os.Stderr, string(resBody))
 		}
 
 		if res.StatusCode >= 300 {
-			showError(resBody)
+			showError(resBody, res.StatusCode)
 		}
 
-		//Empty response, quit early
+		//Empty response (e.g. 204 No Content from DELETE), quit early
 		if len(resBody) == 0 {
+			if !out.Quiet && isTerminal() {
+				fmt.Fprintln(os.Stderr, "Done.")
+			}
 			return
 		}
 
-		//If not a JSON:API response, just rend it raw
-		if res.Header.Get("content-type") != "application/vnd.api+json" {
-			if !quiet {
-				fmt.Println(string(resBody))
+		//If not a JSON:API response, just render it raw
+		//These responses don't follow the data/attributes structure so they
+		//bypass table/csv formatting — but we still pretty-print valid JSON.
+		if !strings.HasPrefix(res.Header.Get("content-type"), "application/vnd.api+json") {
+			if !out.Quiet {
+				if parsed, err := gabs.ParseJSON(resBody); err == nil {
+					fmt.Println(parsed.StringIndent("", "  "))
+				} else {
+					fmt.Println(string(resBody))
+				}
 			}
 
-			if uri == "/service-accounts/assume" && res.Header.Get("content-type") == "application/json" {
+			if uri == "/service-accounts/assume" && strings.HasPrefix(res.Header.Get("content-type"), "application/json") {
 				response, err := gabs.ParseJSON(resBody)
 				checkErr(err)
 
@@ -582,7 +707,17 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 		}
 
 		for _, data := range newItems.Children() {
-			output.ArrayAppend(data)
+			output.ArrayAppend(data.Data())
+		}
+
+		// Save pagination metadata for display
+		if response.Exists("meta", "pagination") {
+			lastPaginationMeta = response.Path("meta.pagination")
+		}
+
+		// If fetching a single page, stop after one iteration
+		if singlePage {
+			break
 		}
 
 		if response.Path("meta.pagination.next-page").Data() == nil {
@@ -591,24 +726,130 @@ func callAPI(method string, uri string, query url.Values, body string, contentTy
 
 	}
 
-	//TODO: Add different outputs, such as YAML, CSV and TABLE
-	//formatJSON(resBody)
-	if !quiet {
-		fmt.Println(output.StringIndent("", "  "))
+	if !out.Quiet {
+		// Detect whether output is a list or a single object.
+		// output starts as an empty array (gabs.Array()). For single-item
+		// responses it gets reassigned to the item itself (a map). For list
+		// responses it stays as an array with elements appended.
+		// We check .Exists("0") to distinguish: arrays have numeric indices,
+		// single objects do not.
+		isArray := output.Exists("0")
+
+		// Handle empty results: if output is still the initial empty array
+		// (no items appended, not reassigned to a single item), render
+		// appropriately instead of falling through to formatKeyValue.
+		isEmpty := false
+		if arr, ok := output.Data().([]interface{}); ok && len(arr) == 0 {
+			isEmpty = true
+		}
+		if isEmpty {
+			if out.Format == "json" {
+				fmt.Println("[]")
+			} else {
+				fmt.Fprintln(os.Stderr, "No results found.")
+			}
+		} else {
+			if out.Fields != "" {
+				output = filterFields(output, out.Fields, isArray)
+			}
+
+			// Apply query expression if requested
+			if out.Query != "" {
+				result, isSimple := applyQuery(output, out.Query, isArray)
+				formatQueryResult(result, isSimple)
+			} else {
+				// Format and display output
+				formatOutput(output, out.Format, isArray, out.Fields, resourceType)
+			}
+		}
+
+		// Show pagination summary in table/csv mode.
+		// When -page was used, show which page we fetched.
+		// When all pages were fetched (default), show only the total count —
+		// showing "page 5 of 5" is misleading since we displayed every page.
+		if (out.Format == "table" || out.Format == "csv") && out.Query == "" && lastPaginationMeta != nil && !isEmpty {
+			totalCount := lastPaginationMeta.Path("total-count").Data()
+			if singlePage {
+				totalPages := lastPaginationMeta.Path("total-pages").Data()
+				formatPaginationInfo(startPage, totalPages, totalCount)
+			} else if totalCount != nil {
+				formatTotalCount(totalCount)
+			}
+		}
 	}
 }
 
-// Parse error response and show it to user
-func showError(resBody []byte) {
+// Parse error response and show human-readable error message.
+// Falls back to raw JSON if the response doesn't follow JSONAPI error format.
+// Uses distinct exit codes: ExitError (1) for 4xx, ExitTransientError (3) for 5xx.
+func showError(resBody []byte, httpStatus ...int) {
+
+	// Determine exit code based on HTTP status
+	exitCode := ExitError
+	if len(httpStatus) > 0 && httpStatus[0] >= 500 {
+		exitCode = ExitTransientError
+	}
 
 	jsonParsed, err := gabs.ParseJSON(resBody)
 	if err != nil {
-		fmt.Println("Server did not return a valid JSON response")
-	} else {
-		fmt.Println(jsonParsed.StringIndent("", "  "))
+		fmt.Fprintln(os.Stderr, "Error: Server did not return a valid JSON response")
+		fmt.Fprintln(os.Stderr, string(resBody))
+		os.Exit(exitCode)
 	}
 
-	os.Exit(1)
+	// Try to parse JSONAPI errors array for human-readable output
+	if jsonParsed.Exists("errors") {
+		printed := false
+		for _, errObj := range jsonParsed.Path("errors").Children() {
+			status := ""
+			if errObj.Exists("status") {
+				status = fmt.Sprintf("%v", errObj.Path("status").Data())
+			}
+
+			title := ""
+			if errObj.Exists("title") {
+				title = fmt.Sprintf("%v", errObj.Path("title").Data())
+			}
+
+			detail := ""
+			if errObj.Exists("detail") {
+				detail = fmt.Sprintf("%v", errObj.Path("detail").Data())
+			}
+
+			pointer := ""
+			if errObj.ExistsP("source.pointer") {
+				pointer = fmt.Sprintf("%v", errObj.Path("source.pointer").Data())
+			}
+
+			// Build a concise error line
+			parts := make([]string, 0, 4)
+			if status != "" {
+				parts = append(parts, status)
+			}
+			if title != "" {
+				parts = append(parts, title)
+			}
+			if detail != "" && detail != title {
+				parts = append(parts, detail)
+			}
+			if pointer != "" {
+				parts = append(parts, "(field: "+pointer+")")
+			}
+
+			if len(parts) > 0 {
+				fmt.Fprintln(os.Stderr, "Error:", strings.Join(parts, ": "))
+				printed = true
+			}
+		}
+
+		if printed {
+			os.Exit(exitCode)
+		}
+	}
+
+	// Fallback: print raw JSON
+	fmt.Fprintln(os.Stderr, jsonParsed.StringIndent("", "  "))
+	os.Exit(exitCode)
 }
 
 // Data JSON:API data to make it easier to work with
@@ -627,7 +868,11 @@ func parseData(response *gabs.Container) *gabs.Container {
 	included := gabs.New()
 
 	for _, include := range response.Path("included").Children() {
-		included.Set(include.Data(), include.Path("type").Data().(string)+"-"+include.Path("id").Data().(string))
+		typeVal, _ := include.Path("type").Data().(string)
+		idVal, _ := include.Path("id").Data().(string)
+		if typeVal != "" && idVal != "" {
+			included.Set(include.Data(), typeVal+"-"+idVal)
+		}
 	}
 
 	for _, value := range response.Path("data").Children() {
@@ -658,7 +903,12 @@ func parseData(response *gabs.Container) *gabs.Container {
 			//TODO: Should probably move this outside of the loop for performance reason, but will make code less readable
 			var connectRelationship = func(rel *gabs.Container) *gabs.Container {
 
-				relId := rel.Path("type").Data().(string) + "-" + rel.Path("id").Data().(string)
+				relType, _ := rel.Path("type").Data().(string)
+				relIdVal, _ := rel.Path("id").Data().(string)
+				if relType == "" || relIdVal == "" {
+					return rel
+				}
+				relId := relType + "-" + relIdVal
 
 				if included.Exists(relId) {
 
@@ -703,7 +953,7 @@ func parseData(response *gabs.Container) *gabs.Container {
 
 		}
 
-		output.ArrayAppend(sub)
+		output.ArrayAppend(sub.Data())
 
 	}
 

@@ -24,17 +24,19 @@ var (
 	buildDate  = "unknown" // Build timestamp
 )
 
-const (
+// Color codes — initialized with values, disabled by -no-color, NO_COLOR env, or CI env.
+var (
 	colorReset = "\033[0m"
-
-	colorRed = "\033[31m"
-	//colorGreen  = "\033[32m"
-	//colorYellow = "\033[33m"
-	colorBlue = "\033[34m"
-	//colorPurple = "\033[35m"
-	//colorCyan   = "\033[36m"
-	//colorWhite  = "\033[37m"
+	colorRed   = "\033[31m"
+	colorBlue  = "\033[34m"
 )
+
+// disableColors turns off all ANSI color codes (for CI, piped output, NO_COLOR).
+func disableColors() {
+	colorReset = ""
+	colorRed = ""
+	colorBlue = ""
+}
 
 func main() {
 
@@ -55,10 +57,16 @@ func main() {
 	configure := flag.Bool("configure", false, "")
 	verbose := flag.Bool("verbose", false, "")
 	version := flag.Bool("version", false, "")
-	format := flag.String("format", "json", "")
+	format := flag.String("format", "", "")
 	update := flag.Bool("update", false, "")
 	autocomplete := flag.Bool("autocomplete", false, "")
 	quiet := flag.Bool("quiet", false, "")
+	fields := flag.String("fields", "", "")
+	pageSize := flag.Int("page-size", 0, "")
+	pageNum := flag.Int("page", 0, "")
+	profile := flag.String("profile", "", "")
+	queryExpr := flag.String("query", "", "")
+	noColor := flag.Bool("no-color", false, "")
 
 	//Only parse the flags if this is not a tab completion request
 	if os.Getenv("COMP_LINE") == "" {
@@ -96,13 +104,25 @@ func main() {
 
 	}
 
+	// Disable colors in CI environments or when explicitly requested
+	// Respects the NO_COLOR convention (https://no-color.org/)
+	if *noColor || os.Getenv("NO_COLOR") != "" || os.Getenv("CI") != "" {
+		disableColors()
+	}
+
 	//Load config from environment
 	ScalrHostname = os.Getenv("SCALR_HOSTNAME")
 	ScalrToken = os.Getenv("SCALR_TOKEN")
 	ScalrAccount = os.Getenv("SCALR_ACCOUNT")
 
+	// Determine which profile to use
+	activeProfile := *profile
+	if activeProfile == "" {
+		activeProfile = os.Getenv("SCALR_PROFILE")
+	}
+
 	//Load config from scalr.conf
-	ScalrHostname, ScalrToken, ScalrAccount = loadConfigScalr(ScalrHostname, ScalrToken, ScalrAccount)
+	ScalrHostname, ScalrToken, ScalrAccount = loadConfigScalr(ScalrHostname, ScalrToken, ScalrAccount, activeProfile)
 
 	if ScalrToken == "" {
 		//Load config from credentials.tfrc.json
@@ -119,7 +139,7 @@ func main() {
 			return
 		}
 
-		fmt.Print("\n", "Not configured! Please run 'scalr -configure' or set environment variables SCALR_HOSTNAME and SCALR_TOKEN", "\n\n")
+		fmt.Fprint(os.Stderr, "\n", "Not configured! Please run 'scalr -configure' or set environment variables SCALR_HOSTNAME and SCALR_TOKEN", "\n\n")
 		return
 	}
 
@@ -134,7 +154,66 @@ func main() {
 		return
 	}
 
-	parseCommand(*format, *verbose, *quiet)
+	// Handle built-in commands that bypass OpenAPI
+	if flag.Arg(0) == "wait-for-run" {
+		// Parse sub-flags for wait-for-run
+		waitFlags := flag.NewFlagSet("wait-for-run", flag.ExitOnError)
+		waitFlags.Usage = func() {}
+		waitRun := waitFlags.String("run", "", "")
+		waitTimeout := waitFlags.Duration("timeout", 30*time.Minute, "")
+
+		// Find command position in args
+		pos := 1
+		for i, arg := range os.Args {
+			if arg == "wait-for-run" {
+				pos = i
+				break
+			}
+		}
+		waitFlags.Parse(os.Args[pos+1:])
+
+		// Need to load API to set BasePath
+		doc := loadAPI()
+		_ = doc
+		waitForRun(*waitRun, *waitTimeout)
+		return
+	}
+
+	// Handle "open" command — opens Scalr dashboard in browser
+	if flag.Arg(0) == "open" {
+		doc := loadAPI()
+		_ = doc
+
+		resourceType := flag.Arg(1)
+		identifier := flag.Arg(2)
+
+		if resourceType == "" {
+			fmt.Fprintln(os.Stderr, "Usage: scalr open <resource-type> [name-or-id]")
+			fmt.Fprintln(os.Stderr, "  scalr open account")
+			fmt.Fprintln(os.Stderr, "  scalr open environment <name-or-id>")
+			fmt.Fprintln(os.Stderr, "  scalr open workspace <name-or-id>")
+			fmt.Fprintln(os.Stderr, "  scalr open run <run-id>")
+			os.Exit(ExitError)
+		}
+
+		openResource(resourceType, identifier)
+		return
+	}
+
+	// Determine output format — JSON is always the default for backward compatibility.
+	out := OutputOptions{
+		Format:  resolveFormat(*format),
+		Fields:  *fields,
+		Query:   *queryExpr,
+		Quiet:   *quiet,
+		Verbose: *verbose,
+	}
+	page := PaginationOptions{
+		Page:     *pageNum,
+		PageSize: *pageSize,
+	}
+
+	parseCommand(out, page)
 }
 
 // Check for error and panic
@@ -144,8 +223,8 @@ func checkErr(e error) {
 	}
 }
 
-// Load config from scalr.conf
-func loadConfigScalr(hostname string, token string, account string) (string, string, string) {
+// Load config from scalr.conf (supports both flat format and profile-based format)
+func loadConfigScalr(hostname string, token string, account string, profile string) (string, string, string) {
 	home, err := os.UserHomeDir()
 	checkErr(err)
 
@@ -160,16 +239,33 @@ func loadConfigScalr(hostname string, token string, account string) (string, str
 	jsonParsed, err := gabs.ParseJSON(content)
 	checkErr(err)
 
-	if jsonParsed.Search("hostname") != nil && hostname == "" {
-		hostname = jsonParsed.Search("hostname").Data().(string)
+	// Determine the config source: profile-based or flat (legacy)
+	configSource := jsonParsed
+
+	if profile != "" {
+		// Explicit profile requested
+		if jsonParsed.Exists(profile) {
+			configSource = jsonParsed.Path(profile)
+		} else {
+			fmt.Fprintf(os.Stderr, "Warning: Profile '%s' not found in scalr.conf, using defaults.\n", profile)
+			return hostname, token, account
+		}
+	} else if jsonParsed.Exists("default") && !jsonParsed.Exists("hostname") {
+		// New format detected (has "default" key but no top-level "hostname")
+		configSource = jsonParsed.Path("default")
+	}
+	// Otherwise: legacy flat format, configSource stays as jsonParsed
+
+	if configSource.Search("hostname") != nil && hostname == "" {
+		hostname = configSource.Search("hostname").Data().(string)
 	}
 
-	if jsonParsed.Search("token") != nil && token == "" {
-		token = jsonParsed.Search("token").Data().(string)
+	if configSource.Search("token") != nil && token == "" {
+		token = configSource.Search("token").Data().(string)
 	}
 
-	if jsonParsed.Search("account") != nil && account == "" {
-		account = jsonParsed.Search("account").Data().(string)
+	if configSource.Search("account") != nil && account == "" {
+		account = configSource.Search("account").Data().(string)
 	}
 
 	return hostname, token, account

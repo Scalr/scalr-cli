@@ -28,15 +28,31 @@ func printInfo() {
 	fmt.Print("  SCALR_ACCOUNT", "   ", "Default Scalr Account ID, i.e acc-tq8cgt2hu6hpfuj", "\n\n")
 
 	fmt.Print("Options:", "\n")
-	fmt.Print("  -version", "       ", "Shows current version of this binary", "\n")
-	fmt.Print("  -help", "          ", "Shows documentation for all (or specified) command(s)", "\n")
-	fmt.Print("  -verbose", "       ", "Shows complete request and response communication data", "\n")
-	fmt.Print("  -configure", "     ", "Run configuration wizard", "\n")
-	fmt.Print("  -update", "        ", "Updates this tool to the latest version by downloading and replacing current binary", "\n")
-	fmt.Print("  -autocomplete", "  ", "Enable shell tab auto-complete", "\n")
-	fmt.Print("  -quiet", "         ", "Disables printing server responses", "\n\n")
+	fmt.Print("  -version", "            ", "Shows current version of this binary", "\n")
+	fmt.Print("  -help", "               ", "Shows documentation for all (or specified) command(s)", "\n")
+	fmt.Print("  -verbose", "            ", "Shows complete request and response communication data", "\n")
+	fmt.Print("  -configure", "          ", "Run configuration wizard", "\n")
+	fmt.Print("  -update", "             ", "Updates this tool to the latest version by downloading and replacing current binary", "\n")
+	fmt.Print("  -autocomplete", "       ", "Enable shell tab auto-complete", "\n")
+	fmt.Print("  -quiet", "              ", "Disables printing server responses", "\n")
+	fmt.Print("  -format=STRING", "      ", "Output format: json (default), table, csv", "\n")
+	fmt.Print("  -fields=LIST", "        ", "Comma-separated list of fields to include in output (controls table/csv columns too)", "\n")
+	fmt.Print("  -page=INT", "           ", "Fetch only a specific page number (default: fetch all pages)", "\n")
+	fmt.Print("  -page-size=INT", "      ", "Number of items per page (default: 100)", "\n")
+	fmt.Print("  -profile=STRING", "     ", "Use a named configuration profile from scalr.conf", "\n")
+	fmt.Print("  -query=STRING", "       ", "Dot-path expression to extract values (e.g. .name, .[].id)", "\n")
+	fmt.Print("  -no-color", "           ", "Disable colored output (also: NO_COLOR or CI env vars)", "\n\n")
 
-	//fmt.Print("  -format=STRING", "  ", "Specify output format. Options: json (default), table", "\n")
+	fmt.Print("Exit codes:", "\n")
+	fmt.Print("  0  Success", "\n")
+	fmt.Print("  1  Error (bad input, 4xx, missing flags, not found)", "\n")
+	fmt.Print("  3  Transient error (5xx, network failure, timeout) — safe to retry", "\n\n")
+
+	fmt.Print("Aliases:", "\n")
+	for alias, target := range commandAliases {
+		fmt.Printf("  %-20s  %s\n", alias, target)
+	}
+	fmt.Println()
 
 }
 
@@ -111,6 +127,11 @@ func printHelp() {
 }
 
 func printHelpCommand(command string) {
+
+	// Resolve aliases
+	if target, ok := commandAliases[command]; ok {
+		command = target
+	}
 
 	//Load OpenAPI specification
 	doc := loadAPI()
