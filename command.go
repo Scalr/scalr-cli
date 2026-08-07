@@ -383,9 +383,12 @@ func parseCommand(out OutputOptions, page PaginationOptions) {
 								}
 
 								//Special case for arrays of objects used in relationships
-								if attribute.Value.Type.Is("array") && attribute.Value.Items.Value.Type.Is("object") {
+								isRelationshipArray := attribute.Value.Type.Is("array") &&
+									attribute.Value.Items != nil &&
+									attribute.Value.Items.Value.Type.Is("object")
+
+								if isRelationshipArray {
 									path = path + ".id"
-									continue
 								}
 
 								flagName := strings.ReplaceAll(path, ".", "-")
@@ -449,7 +452,7 @@ func parseCommand(out OutputOptions, page PaginationOptions) {
 								}
 
 								switch {
-								case theType.Is("object"):
+								case isRelationshipArray:
 									//Special case for arrays in relationships
 									for _, item := range strings.Split(value, ",") {
 										sub := gabs.New()
