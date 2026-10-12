@@ -40,6 +40,9 @@ do
     if [ $GOOS == 'darwin' ] && [ $GOARCH == '386' ]; then
       continue
     fi
+    if [ $GOOS == 'windows' ] && [ $GOARCH == 'arm' ]; then
+      continue
+    fi
     if [ $GOOS == 'darwin' ] && [ $GOARCH == 'arm' ]; then
       continue
     fi
